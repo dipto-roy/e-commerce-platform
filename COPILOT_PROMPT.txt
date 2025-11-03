@@ -1,0 +1,170 @@
+E-Commerce Project – Copilot Agent Prompt
+
+Context:
+- Frontend: Next.js 15 + Tailwind CSS (responsive, modern UI)
+- Backend: NestJS + TypeORM + PostgreSQL
+- Auth: JWT (access + refresh), httpOnly cookies, Guards, Role-based access
+- Users: ADMIN, SELLER, USER
+- Seller Rule: Seller must be verified by ADMIN before selling
+- Modules ready: Auth, Product, Image, Email (Nodemailer backend service already implemented)
+- Missing: Order module, Financial module, Seller dashboard updates, Realtime notification system
+
+Goals:
+1. Build a complete Order module with correct DB relations and migrations.
+2. Ensure User must be logged in to place order → if not logged in, redirect to login.
+3. Update Seller Dashboard with:
+   - Product management (with image upload)
+   - Order management
+   - Financial live calculation (earnings, pending payouts, completed payouts)
+   - Email system (reuse existing backend Nodemailer) to send messages to buyers
+   - Notification system with Pusher.js
+4. Implement Email notifications: order placed, status updated, seller verification.
+5. Ensure frontend is responsive with Tailwind CSS.
+6. Keep migrations, tests, and documentation updated.
+
+Tasks:
+
+1) Order Module
+Entities:
+- Order → id (PK), userId (FK → User), status (enum), totalAmount, shippingAddress, placedAt, paymentId, orderItems[], metadata
+- OrderItem → id (PK), orderId (FK → Order), productId, productNameSnapshot, unitPriceSnapshot, quantity, subtotal, sellerId
+- Payment → id (PK), provider, providerPaymentId, amount, currency, status, metadata, createdAt, updatedAt
+- FinancialRecord → id (PK), sellerId (FK → User), orderItemId (FK → OrderItem), amount, status (PENDING, CLEARED, PAID), createdAt
+
+Important: Analyze entities carefully and generate migrations with correct primary keys, foreign keys, and relations to avoid any database issues.
+
+Endpoints:
+- POST /api/orders → Create order (login required, else redirect to login)
+- GET /api/orders → Admin: all | Seller: their orders | User: their orders
+- GET /api/orders/:id → Order details (role-based)
+- PATCH /api/orders/:id/status → Update status (seller/admin only)
+- POST /api/orders/:id/cancel → Cancel order
+
+Business Logic:
+- Snapshot product data into OrderItem
+- Deduct stock → rollback if failure
+- Create FinancialRecord per seller
+- Update seller's financial summary on status change
+- Trigger notifications (via Pusher) on important events
+
+2) Product Module (enhanced)
+- CRUD with image management (upload, update, delete)
+- Each product supports multiple images
+- Seller dashboard allows full product + image management
+
+3) Seller Dashboard
+Pages:
+- /seller/products → Product management (CRUD, stock, images)
+- /seller/orders → Orders list + details + update
+- /seller/financials → Earnings summary (pending, cleared, paid)
+- /seller/email → Use existing Nodemailer backend service to send messages to buyers
+- /seller/notifications → Real-time notifications
+
+Features:
+- Tailwind responsive design
+- Next.js 15 server-side data fetching
+- Toasts + modals for actions (order updates, financial payouts, email send, notifications)
+- Pagination + filters
+- Real-time Pusher.js integration
+
+4) Email System (Nodemailer – already implemented)
+- Reuse existing Nodemailer backend service for:
+  - Order placed (user + sellers)
+  - Order status update (user)
+  - Seller verification result
+  - Seller → User direct messages (/seller/email)
+- Store all sent emails in EmailLog {id, sellerId, userId, subject, body, createdAt}
+- ENV config: ENABLE_EMAILS, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS
+
+5) Notification System (Pusher.js)
+- Real-time notifications via Pusher
+- Events:
+  - New order → seller notified
+  - Order status updated → buyer notified
+  - Seller verification → seller notified
+  - Payout marked → seller notified
+- Entity: Notification {id, userId, type, message, data (JSON), isRead, createdAt}
+- Dashboard shows dropdown + page for notifications
+- ENV Config: PUSHER_APP_ID, PUSHER_KEY, PUSHER_SECRET, PUSHER_CLUSTER
+
+6) Financial Module
+- Generate FinancialRecord on order creation
+- Seller dashboard shows: total, pending, cleared, paid
+- Admin /admin/payouts → mark payouts, update status to PAID
+- Trigger notification when payout clears
+
+7) Database & Migrations
+- Generate migrations for: orders, order_items, payments, financial_records, email_logs, notifications
+- Analyze entities and relationships carefully → set primary keys, foreign keys, and constraints correctly
+- Indexes: orders.user_id | order_items.seller_id | financial_records.seller_id | email_logs.user_id, seller_id | notifications.user_id
+- Scripts:
+  - npm run migration:generate
+  - npm run migration:run
+
+
+8) Documentation
+Update README.md:
+- Order, Financial, Email, Notification, Product+Image endpoints
+- Seller dashboard usage
+- Nodemailer config
+- Pusher config
+- Migration steps
+
+Developer Checklist:
+- [ ] Order module complete
+- [ ] Product CRUD with image support
+- [ ] Financial module implemented
+- [ ] Seller dashboard (products, orders, financials, email, notifications)
+- [ ] Reuse existing Nodemailer service for email
+- [ ] Pusher integrated for notifications
+- [ ] Tailwind responsive everywhere
+- [ ] Role-based guards
+- [ ] README updated
+
+Copilot Agent Hints:
+- Use QueryRunner for atomic order + financial record creation
+- Snapshot product data into OrderItem
+- Always check AuthGuard → redirect unauthenticated users
+- Use existing Nodemailer service (injectable & reusable)
+- Use EventEmitter for async notifications/email
+- Keep responses small (orderId, status, amount)
+- Frontend: Next.js Server Components + Tailwind
+- Pusher for real-time events
+- Analyze entity relationships carefully for migrations → avoid FK/PK issues
+
+Example API Flow:
+User clicks order without login → Redirect /login?next=/checkout
+
+Create Order (logged in)
+POST /api/orders
+Cookie: accessToken=...
+Body:
+{
+  "items": [{ "productId": "uuid", "quantity": 1 }],
+  "shippingAddress": { "line1": "Street", "city": "Dhaka" },
+  "paymentMethod": "cod"
+}
+Response:
+{
+  "orderId": "uuid",
+  "status": "PENDING",
+  "totalAmount": 1500,
+  "financialRecords": [
+    { "sellerId": "uuid", "amount": 1500, "status": "PENDING" }
+  ]
+}
+
+Seller Email Flow:
+- Seller → /seller/email
+- Select orderId + buyer
+- POST /api/seller/email → use existing backend Nodemailer service
+- Log email in EmailLog
+
+Notification Flow:
+- Order created → emit "order:new" to seller channel
+- Order status updated → emit "order:status" to user channel
+- Payout marked → emit "payout:cleared" to seller channel
+- Notifications stored in DB, marked read when opened
+
+Save this file as COPILOT_PROMPT.txt at project root.
+Copilot Agent will now understand auth + orders + seller financial + product+image CRUD + seller email system + notification system + dashboard requirements, reuse backend Nodemailer service, and analyze entities to generate proper migrations.

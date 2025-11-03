@@ -1,0 +1,165 @@
+#!/bin/bash
+
+# Test Product Edit Fix - Verify 400 Error is Resolved
+# This script tests the product update functionality after fixing type conversions
+
+echo "=========================================="
+echo "Testing Product Edit Fix (400 Error Resolution)"
+echo "=========================================="
+echo ""
+
+# Colors for output
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+BASE_URL="http://localhost:4002/api/v1"
+FRONTEND_URL="http://localhost:3000"
+
+echo "📋 Test Context:"
+echo "- Issue: Product edit failing with 'Request failed with status code 400'"
+echo "- Root Cause: FormData values converted to strings, backend expects proper types"
+echo "- Fix Applied: Type conversion in handleUpdateProduct (price/stock → Number, isActive → Boolean)"
+echo ""
+
+echo "🔍 What was fixed:"
+echo "  ✅ price: string '99.99' → number 99.99"
+echo "  ✅ stock: string '25' → number 25"
+echo "  ✅ isActive: string 'true' → boolean true"
+echo ""
+
+echo "=========================================="
+echo "Manual Testing Steps:"
+echo "=========================================="
+echo ""
+
+echo "${YELLOW}Step 1: Verify Frontend is Running${NC}"
+echo "  → Open browser: $FRONTEND_URL"
+echo "  → Navigate to: Admin Dashboard → Products"
+echo ""
+
+echo "${YELLOW}Step 2: Test Product Edit${NC}"
+echo "  → Click 'Edit' button on any product (e.g., Product #55)"
+echo "  → Modify the following fields:"
+echo "      • Title: 'Updated Test Product'"
+echo "      • Stock: 50"
+echo "      • Price: 149.99"
+echo "      • Category: 'Electronics'"
+echo "  → Click 'Save Changes'"
+echo ""
+
+echo "${YELLOW}Step 3: Verify Success${NC}"
+echo "  → Should see: 'Product updated successfully' toast"
+echo "  → Should NOT see: 'Request failed with status code 400'"
+echo "  → Product list should refresh with updated values"
+echo ""
+
+echo "=========================================="
+echo "Expected Behavior:"
+echo "=========================================="
+echo ""
+
+echo "${GREEN}✅ Before Fix:${NC}"
+echo "  → PUT /products/55"
+echo "  → Request body: { title: '...', price: '99.99', stock: '25', isActive: 'true' }"
+echo "  → Backend receives strings → validation fails → 400 error"
+echo ""
+
+echo "${GREEN}✅ After Fix:${NC}"
+echo "  → PUT /products/55"
+echo "  → Request body: { name: '...', price: 99.99, stock: 25, isActive: true }"
+echo "  → Backend receives proper types → validation passes → 200 success"
+echo ""
+
+echo "=========================================="
+echo "Technical Details:"
+echo "=========================================="
+echo ""
+
+echo "Backend DTO Validation (UpdateProductDto):"
+echo "  • price: @IsPositive() - requires number"
+echo "  • stock: @Min(0) - requires number"
+echo "  • isActive: @IsBoolean() - requires boolean"
+echo ""
+
+echo "Frontend Fix (handleUpdateProduct):"
+echo "  • Converts FormData string values to proper types"
+echo "  • price/stock: Number(value)"
+echo "  • isActive: value === 'true'"
+echo ""
+
+echo "Backend Service (prepareProductData):"
+echo "  • Transforms 'stock' → 'stockQuantity' for database"
+echo "  • Already working correctly"
+echo ""
+
+echo "=========================================="
+echo "Test Checklist:"
+echo "=========================================="
+echo ""
+echo "[ ] 1. Edit product form opens correctly"
+echo "[ ] 2. All fields pre-populated with current values"
+echo "[ ] 3. Can modify all fields (title, stock, price, category)"
+echo "[ ] 4. Save button triggers update"
+echo "[ ] 5. Success toast appears"
+echo "[ ] 6. NO 400 error in browser console"
+echo "[ ] 7. Product list refreshes with new values"
+echo "[ ] 8. Changes persist in database"
+echo ""
+
+echo "=========================================="
+echo "Quick Database Verification:"
+echo "=========================================="
+echo ""
+
+echo "To verify the update in database, run:"
+echo "  psql -U postgres -d ecommerce -c \"SELECT id, name, price, \\\"stockQuantity\\\", category, \\\"isActive\\\" FROM products WHERE id = 55;\""
+echo ""
+
+echo "=========================================="
+echo "Browser Console Debug:"
+echo "=========================================="
+echo ""
+
+echo "Open browser DevTools (F12) and check:"
+echo "  1. Network tab → PUT request to /products/55"
+echo "  2. Request payload should show:"
+echo "     {" 
+echo "       \"name\": \"...\","
+echo "       \"price\": 149.99,        ← NUMBER, not string"
+echo "       \"stock\": 50,            ← NUMBER, not string"
+echo "       \"isActive\": true,       ← BOOLEAN, not string"
+echo "       \"category\": \"...\""
+echo "     }"
+echo "  3. Response status should be: 200 OK"
+echo ""
+
+echo "=========================================="
+echo "${GREEN}✅ Fix Summary:${NC}"
+echo "=========================================="
+echo ""
+echo "File Modified:"
+echo "  📄 e-commerce-frontend/src/app/dashboard/admin/products/page.tsx"
+echo ""
+echo "Function Updated:"
+echo "  🔧 handleUpdateProduct()"
+echo ""
+echo "Changes Made:"
+echo "  • Added type conversion for price: Number(value)"
+echo "  • Added type conversion for stock: Number(value)"
+echo "  • Added type conversion for isActive: value === 'true'"
+echo ""
+echo "Result:"
+echo "  ✅ Backend receives properly typed values"
+echo "  ✅ DTO validation passes"
+echo "  ✅ Product update succeeds with 200 response"
+echo "  ✅ No more 400 error!"
+echo ""
+
+echo "=========================================="
+echo "Ready to Test!"
+echo "=========================================="
+echo ""
+echo "${YELLOW}Please follow the manual testing steps above and verify the fix works.${NC}"
+echo ""

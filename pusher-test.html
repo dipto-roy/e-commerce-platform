@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pusher Real-Time Test</title>
+    <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 10px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .connected { background: #d4edda; color: #155724; }
+        .disconnected { background: #f8d7da; color: #721c24; }
+        .connecting { background: #fff3cd; color: #856404; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        #logs {
+            max-height: 300px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Pusher Real-Time System Test</h1>
+    
+    <div class="card">
+        <h2>Connection Status</h2>
+        <div id="status" class="status disconnected">Disconnected</div>
+        <div>
+            <button onclick="connect()">Connect</button>
+            <button onclick="disconnect()">Disconnect</button>
+            <button onclick="testNotification()">Send Test Notification</button>
+            <button onclick="clearLogs()">Clear Logs</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Configuration</h2>
+        <p><strong>Pusher Key:</strong> 15b1c61ffa0f4d470c2b</p>
+        <p><strong>Cluster:</strong> ap2</p>
+        <p><strong>Backend URL:</strong> http://localhost:4002</p>
+        <p><strong>Frontend URL:</strong> http://localhost:3000</p>
+    </div>
+
+    <div class="card">
+        <h2>Real-Time Logs</h2>
+        <div id="logs"></div>
+    </div>
+
+    <script>
+        let pusher = null;
+        let channels = {};
+        
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logElement = document.getElementById('logs');
+            logElement.textContent += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(message);
+        }
+
+        function updateStatus(status, color) {
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = status;
+            statusElement.className = `status ${color}`;
+        }
+
+        function connect() {
+            try {
+                log('🔧 Initializing Pusher connection...');
+                
+                // Enable logging
+                Pusher.logToConsole = true;
+                
+                pusher = new Pusher('15b1c61ffa0f4d470c2b', {
+                    cluster: 'ap2',
+                    enabledTransports: ['ws', 'wss'],
+                    forceTLS: true,
+                    wsHost: 'ws-ap2.pusher.com',
+                    wsPort: 443,
+                    wssPort: 443,
+                    activityTimeout: 30000,
+                    pongTimeout: 15000
+                });
+
+                // Connection state monitoring
+                pusher.connection.bind('state_change', function(states) {
+                    log(`📡 Connection state: ${states.previous} → ${states.current}`);
+                    
+                    switch(states.current) {
+                        case 'connecting':
+                            updateStatus('Connecting...', 'connecting');
+                            break;
+                        case 'connected':
+                            updateStatus(`Connected (Socket: ${pusher.connection.socket_id})`, 'connected');
+                            subscribeToChannels();
+                            break;
+                        case 'disconnected':
+                            updateStatus('Disconnected', 'disconnected');
+                            break;
+                        case 'unavailable':
+                            updateStatus('Connection Unavailable', 'disconnected');
+                            break;
+                    }
+                });
+
+                pusher.connection.bind('connected', function() {
+                    log(`✅ Successfully connected with socket ID: ${pusher.connection.socket_id}`);
+                });
+
+                pusher.connection.bind('disconnected', function() {
+                    log('⚠️ Disconnected from Pusher');
+                });
+
+                pusher.connection.bind('error', function(err) {
+                    log(`❌ Connection error: ${JSON.stringify(err)}`);
+                });
+
+            } catch (error) {
+                log(`❌ Failed to initialize Pusher: ${error.message}`);
+            }
+        }
+
+        function subscribeToChannels() {
+            try {
+                // Subscribe to public channels
+                const publicChannel = pusher.subscribe('notifications');
+                publicChannel.bind('general-notification', function(data) {
+                    log(`🔔 Public notification: ${JSON.stringify(data)}`);
+                });
+
+                // Subscribe to broadcast channel
+                const broadcastChannel = pusher.subscribe('broadcast');
+                broadcastChannel.bind('system-notification', function(data) {
+                    log(`📢 Broadcast notification: ${JSON.stringify(data)}`);
+                });
+
+                log('📡 Subscribed to public channels: notifications, broadcast');
+
+            } catch (error) {
+                log(`❌ Failed to subscribe to channels: ${error.message}`);
+            }
+        }
+
+        function disconnect() {
+            if (pusher) {
+                pusher.disconnect();
+                log('🔌 Disconnected from Pusher');
+            }
+        }
+
+        function testNotification() {
+            if (!pusher || pusher.connection.state !== 'connected') {
+                log('❌ Not connected to Pusher');
+                return;
+            }
+
+            log('🧪 Sending test notification to backend...');
+            
+            // Test notification via backend API
+            fetch('http://localhost:4002/notifications/test', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    type: 'system',
+                    title: 'Test Notification',
+                    message: 'This is a test notification from the real-time system',
+                    data: {
+                        timestamp: new Date().toISOString(),
+                        testId: Math.random().toString(36).substr(2, 9)
+                    }
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                log(`✅ Test notification sent: ${JSON.stringify(data)}`);
+            })
+            .catch(error => {
+                log(`❌ Failed to send test notification: ${error.message}`);
+            });
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').textContent = '';
+        }
+
+        // Auto-connect on page load
+        window.addEventListener('load', function() {
+            log('🚀 Pusher Test Page Loaded');
+            log('👆 Click "Connect" to start testing real-time functionality');
+        });
+    </script>
+</body>
+</html>

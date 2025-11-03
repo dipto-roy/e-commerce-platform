@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Order Confirmation Images</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        img { max-width: 100px; max-height: 100px; border: 1px solid #ddd; }
+        .error { color: red; }
+        .success { color: green; }
+    </style>
+</head>
+<body>
+    <h1>Order Confirmation Image Test</h1>
+    
+    <div class="test-section">
+        <h2>Test 1: Direct Image URL from Backend</h2>
+        <p>Testing image URL as returned by backend API:</p>
+        <img id="test1" src="http://localhost:4002/uploads/images/Clear_Comparison_Echidna_Workflows2205cbd6-964a-4c9f-9224-2d9614f49fd8.png" 
+             alt="Test image 1" 
+             onload="document.getElementById('test1-result').innerHTML = '✅ Success'"
+             onerror="document.getElementById('test1-result').innerHTML = '❌ Failed to load'">
+        <div id="test1-result">Loading...</div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Different Image File</h2>
+        <p>Testing another image from the uploads directory:</p>
+        <img id="test2" src="http://localhost:4002/uploads/images/563df53262050b8e1fdb12d93c60ab81.jpg_720x720q8071968327-ef51-4fef-9643-9297786eb16c.jpg" 
+             alt="Test image 2" 
+             onload="document.getElementById('test2-result').innerHTML = '✅ Success'"
+             onerror="document.getElementById('test2-result').innerHTML = '❌ Failed to load'">
+        <div id="test2-result">Loading...</div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Frontend Order Confirmation Access</h2>
+        <p>Testing access to order confirmation page:</p>
+        <iframe src="http://localhost:3000/orders/50/confirmation" 
+                width="800" height="400" 
+                onload="document.getElementById('test3-result').innerHTML = '✅ Page loaded'"
+                onerror="document.getElementById('test3-result').innerHTML = '❌ Failed to load page'">
+        </iframe>
+        <div id="test3-result">Loading...</div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 4: Backend Order API</h2>
+        <p>Testing order API response:</p>
+        <button onclick="testOrderAPI()">Test Order API</button>
+        <div id="test4-result">Click button to test</div>
+        <pre id="api-response"></pre>
+    </div>
+
+    <script>
+        async function testOrderAPI() {
+            const resultDiv = document.getElementById('test4-result');
+            const responseDiv = document.getElementById('api-response');
+            
+            try {
+                resultDiv.innerHTML = 'Testing...';
+                const response = await fetch('http://localhost:4002/orders/50', {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = '✅ API accessible';
+                    responseDiv.textContent = JSON.stringify(data, null, 2);
+                } else {
+                    resultDiv.innerHTML = `❌ API error: ${response.status} ${response.statusText}`;
+                    responseDiv.textContent = `Status: ${response.status}`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `❌ Request failed: ${error.message}`;
+                responseDiv.textContent = error.toString();
+            }
+        }
+
+        // Test image loading on page load
+        setTimeout(() => {
+            const imgs = document.querySelectorAll('img');
+            imgs.forEach(img => {
+                if (img.complete && img.naturalHeight === 0) {
+                    const resultId = img.id + '-result';
+                    const resultDiv = document.getElementById(resultId);
+                    if (resultDiv) {
+                        resultDiv.innerHTML = '❌ Failed to load (no image data)';
+                    }
+                }
+            });
+        }, 3000);
+    </script>
+</body>
+</html>
