@@ -6,7 +6,7 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
-  OneToOne
+  OneToOne,
 } from 'typeorm';
 import { User } from '../../users/entities/unified-user.entity';
 import { OrderItem } from './order-item.entity';
@@ -40,7 +40,7 @@ export class FinancialRecord {
   @Column({
     type: 'enum',
     enum: FinancialStatus,
-    default: FinancialStatus.PENDING
+    default: FinancialStatus.PENDING,
   })
   status: FinancialStatus;
 
@@ -79,7 +79,7 @@ export class FinancialRecord {
 
   @OneToOne(() => OrderItem, (orderItem) => orderItem.financialRecord, {
     nullable: false,
-    onDelete: 'CASCADE'
+    onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'orderItemId' })
   orderItem: OrderItem;
@@ -98,11 +98,11 @@ export class FinancialRecord {
   markAsPaid(payoutId?: string, payoutDetails?: any): void {
     this.status = FinancialStatus.PAID;
     this.paidAt = new Date();
-    
+
     if (payoutId) {
       this.payoutId = payoutId;
     }
-    
+
     if (payoutDetails) {
       this.payoutDetails = { ...this.payoutDetails, ...payoutDetails };
     }
@@ -120,7 +120,10 @@ export class FinancialRecord {
     return this.status === FinancialStatus.PAID;
   }
 
-  static createFromOrderItem(orderItem: OrderItem, platformFeeRate = 0.05): Partial<FinancialRecord> {
+  static createFromOrderItem(
+    orderItem: OrderItem,
+    platformFeeRate = 0.05,
+  ): Partial<FinancialRecord> {
     const amount = orderItem.subtotal;
     const platformFee = amount * platformFeeRate;
     const netAmount = amount - platformFee;
@@ -132,7 +135,7 @@ export class FinancialRecord {
       platformFee,
       processingFee: 0,
       netAmount,
-      status: FinancialStatus.PENDING
+      status: FinancialStatus.PENDING,
     };
   }
 }

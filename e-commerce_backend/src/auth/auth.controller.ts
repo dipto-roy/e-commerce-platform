@@ -21,6 +21,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiBody,
+  ApiHeader,
 } from '@nestjs/swagger';
 import { AuthServiceNew } from './auth-new.service'; // Use the newer service
 import { RegisterDto } from './dto/register.dto/register.dto';
@@ -33,6 +34,7 @@ import {
 import { JwtAuthGuard } from './jwt-auth/jwt-auth.guard';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { OtpService } from './otp/otp.service';
+import { STATUS_CODES } from 'http';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -68,9 +70,68 @@ export class AuthController {
     summary: 'Login user',
     description: 'Authenticate user and receive JWT tokens in cookies',
   })
+  @ApiBody({
+    type: LoginDto,
+    description: 'Login credentials (username/email and password)',
+    examples: {
+      user: {
+        summary: 'Login with username',
+        value: {
+          email: 'test_user',
+          password: 'Test123!@#',
+        },
+      },
+      email: {
+        summary: 'Login with email',
+        value: {
+          email: 'test@example.com',
+          password: 'Test123!@#',
+        },
+      },
+    },
+  })
+  @ApiHeader({
+    name: 'user-agent',
+    description: 'User agent string (automatically provided by browser/client)',
+    required: false,
+    schema: {
+      type: 'string',
+      default: 'PostmanRuntime/7.x',
+    },
+  })
   @ApiResponse({
     status: 200,
-    description: 'Login successful, tokens set in cookies',
+    description:
+      'Login successful, tokens set in cookies and returned in response',
+    schema: {
+      type: 'object',
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Login successful',
+        },
+        access_token: {
+          type: 'string',
+          example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+          description: 'JWT access token (valid for 15 minutes)',
+        },
+        refresh_token: {
+          type: 'string',
+          example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+          description: 'JWT refresh token (valid for 7 days)',
+        },
+        user: {
+          type: 'object',
+          properties: {
+            id: { type: 'number', example: 1 },
+            username: { type: 'string', example: 'test_user' },
+            email: { type: 'string', example: 'test@example.com' },
+            role: { type: 'string', example: 'USER' },
+            fullName: { type: 'string', example: 'Test User' },
+          },
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 401,
@@ -102,8 +163,12 @@ export class AuthController {
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       });
 
+      // Return tokens in response body for Postman/API testing
       return {
         message: result.message,
+        access_token: result.tokens.access_token,
+        refresh_token: result.tokens.refresh_token,
+        statusCode: 201,
         user: result.user,
       };
     } catch (error) {
@@ -127,7 +192,32 @@ export class AuthController {
   }
 
   @Post('logout')
-  async logout(@Res({ passthrough: true }) response: Response) {
+  @ApiOperation({
+    summary: 'Logout user',
+    description:
+      'Logout user by revoking refresh token and clearing cookies. Works even without tokens.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Logout successful, all tokens cleared',
+  })
+  async logout(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    // Get refresh token from cookies
+    const refreshToken = request.cookies?.refresh_token;
+
+    // Revoke refresh token in database if it exists
+    if (refreshToken) {
+      try {
+        await this.authService.logout(refreshToken);
+      } catch (error) {
+        console.warn('Failed to revoke refresh token:', error.message);
+        // Continue with logout even if revocation fails
+      }
+    }
+
     // Clear both access_token and refresh_token cookies
     const cookieOptions = {
       httpOnly: true,
@@ -139,10 +229,43 @@ export class AuthController {
     response.clearCookie('access_token', cookieOptions);
     response.clearCookie('refresh_token', cookieOptions);
 
-    return { message: 'Logged out successfully' };
+    return {
+      message: 'Logged out successfully',
+      statusCode: 200,
+    };
   }
 
   @Post('refresh')
+  @ApiOperation({
+    summary: 'Refresh access token',
+    description:
+      'Generate new access and refresh tokens using valid refresh token from cookies',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Tokens refreshed successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Tokens refreshed successfully',
+        },
+        access_token: {
+          type: 'string',
+          example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        },
+        refresh_token: {
+          type: 'string',
+          example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Refresh token not found, invalid, expired, or revoked',
+  })
   async refreshToken(
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
@@ -152,39 +275,57 @@ export class AuthController {
     const refreshToken = request.cookies?.refresh_token;
 
     if (!refreshToken) {
-      throw new UnauthorizedException('Refresh token not found');
+      throw new UnauthorizedException('Refresh token not found in cookies');
     }
 
     try {
-      // Generate new token pair using the refresh token
+      // Validate and generate new token pair using the refresh token
       const tokens = await this.authService.refreshTokens(
         refreshToken,
         ip,
         userAgent,
       );
 
-      // Set new HTTP-only cookies
-      response.cookie('access_token', tokens.access_token, {
+      // Set new HTTP-only cookies with secure settings
+      const cookieOptions = {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        sameSite: 'strict' as const,
+        path: '/',
+      };
+
+      response.cookie('access_token', tokens.access_token, {
+        ...cookieOptions,
         maxAge: 15 * 60 * 1000, // 15 minutes
       });
 
       response.cookie('refresh_token', tokens.refresh_token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        ...cookieOptions,
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       });
 
       return {
         message: 'Tokens refreshed successfully',
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        statusCode: 200,
       };
     } catch (error) {
-      response.clearCookie('access_token');
-      response.clearCookie('refresh_token');
-      throw new UnauthorizedException('Invalid or expired refresh token');
+      // Clear cookies on error
+      const cookieOptions = {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict' as const,
+        path: '/',
+      };
+
+      response.clearCookie('access_token', cookieOptions);
+      response.clearCookie('refresh_token', cookieOptions);
+
+      console.error('❌ Refresh token error:', error.message);
+      throw new UnauthorizedException(
+        'Invalid, expired, or revoked refresh token',
+      );
     }
   }
 
@@ -193,7 +334,33 @@ export class AuthController {
    */
 
   @Post('forgot-password')
-  @Throttle({ default: { limit: 3, ttl: 900000 } }) // 3 requests per 15 minutes
+  @Throttle({ default: { limit: 3, ttl: 900000 } }) // 🔒 Rate limit: 3 requests per 15 minutes
+  @ApiOperation({
+    summary: 'Request password reset OTP',
+    description:
+      'Send OTP to user email for password reset. Rate limited to 3 requests per 15 minutes per IP.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'OTP sent successfully to email',
+    schema: {
+      type: 'object',
+      properties: {
+        message: {
+          type: 'string',
+          example: 'OTP sent to your email',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Too many requests - rate limit exceeded',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
+  })
   @UsePipes(ValidationPipe)
   async forgotPassword(
     @Body() forgotPasswordDto: ForgotPasswordDto,
@@ -208,7 +375,24 @@ export class AuthController {
   }
 
   @Post('verify-otp')
-  @Throttle({ default: { limit: 5, ttl: 900000 } }) // 5 attempts per 15 minutes
+  @Throttle({ default: { limit: 5, ttl: 900000 } }) // 🔒 Rate limit: 5 attempts per 15 minutes
+  @ApiOperation({
+    summary: 'Verify OTP',
+    description:
+      'Verify OTP code for password reset. Rate limited to 5 attempts per 15 minutes.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'OTP verified, reset token issued',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid or expired OTP',
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Too many attempts - rate limit exceeded',
+  })
   @UsePipes(ValidationPipe)
   async verifyOtp(@Body() verifyOtpDto: VerifyOtpDto) {
     return await this.otpService.verifyOTP(
@@ -218,7 +402,24 @@ export class AuthController {
   }
 
   @Post('reset-password')
-  @Throttle({ default: { limit: 3, ttl: 900000 } }) // 3 requests per 15 minutes
+  @Throttle({ default: { limit: 3, ttl: 900000 } }) // 🔒 Rate limit: 3 requests per 15 minutes
+  @ApiOperation({
+    summary: 'Reset password',
+    description:
+      'Reset password using valid reset token. Rate limited to 3 requests per 15 minutes.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Password reset successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid or expired reset token',
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Too many requests - rate limit exceeded',
+  })
   @UsePipes(ValidationPipe)
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
     return await this.otpService.resetPassword(

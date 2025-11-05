@@ -21,13 +21,13 @@ import { MaillerModule } from '../mailler/mailler.module';
       FinancialRecord,
       Product,
       User,
-      Cart
+      Cart,
     ]),
     NotificationModule,
-    MaillerModule
+    MaillerModule,
   ],
   controllers: [OrderController],
   providers: [OrderService],
-  exports: [OrderService]
+  exports: [OrderService],
 })
 export class OrderModule {}

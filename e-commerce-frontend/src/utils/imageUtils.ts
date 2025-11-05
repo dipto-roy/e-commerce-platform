@@ -15,12 +15,28 @@ export const getImageUrl = (imageUrl: string | undefined, fallbackUrl: string = 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002/api/v1';
   
   // Handle different path formats
+  if (imageUrl.startsWith('/api/v1/uploads/')) {
+    return `http://localhost:4002${imageUrl}`;
+  }
+  
+  if (imageUrl.startsWith('/api/v1/products/serve-image/')) {
+    return `http://localhost:4002${imageUrl}`;
+  }
+  
   if (imageUrl.startsWith('/uploads/')) {
     return `${apiUrl}${imageUrl}`;
   }
   
   if (imageUrl.startsWith('/products/serve-image/')) {
     return `${apiUrl}${imageUrl}`;
+  }
+  
+  if (imageUrl.startsWith('api/v1/uploads/')) {
+    return `http://localhost:4002/${imageUrl}`;
+  }
+  
+  if (imageUrl.startsWith('api/v1/products/serve-image/')) {
+    return `http://localhost:4002/${imageUrl}`;
   }
   
   if (imageUrl.startsWith('uploads/')) {

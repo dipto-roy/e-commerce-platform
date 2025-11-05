@@ -1,21 +1,28 @@
-import { IsString, IsBoolean, IsOptional, MaxLength, MinLength, Matches, IsNotEmpty } from 'class-validator';
+import {
+  IsString,
+  IsBoolean,
+  IsOptional,
+  MaxLength,
+  MinLength,
+  Matches,
+  IsNotEmpty,
+} from 'class-validator';
 //import { Hash } from 'crypto';
-
 
 export class SellerDto {
   @IsString()
   @MinLength(3, { message: 'Username must be at least 3 characters long' })
   @MaxLength(100, { message: 'Username cannot exceed 100 characters' })
-  @Matches(/^[a-zA-Z0-9_]+$/, { 
-    message: 'Username can only contain letters, numbers, and underscores' 
+  @Matches(/^[a-zA-Z0-9_]+$/, {
+    message: 'Username can only contain letters, numbers, and underscores',
   })
   username: string;
 
   @IsString()
   @MinLength(2, { message: 'Full name must be at least 2 characters long' })
   @MaxLength(150, { message: 'Full name cannot exceed 150 characters' })
-  @Matches(/^[a-zA-Z\s]+$/, { 
-    message: 'Full name can only contain letters and spaces' 
+  @Matches(/^[a-zA-Z\s]+$/, {
+    message: 'Full name can only contain letters and spaces',
   })
   fullName: string;
 
@@ -27,7 +34,7 @@ export class SellerDto {
   })
   @IsString()
   name: string;
-    
+
   // Password validation
   @IsNotEmpty()
   @MinLength(10, {

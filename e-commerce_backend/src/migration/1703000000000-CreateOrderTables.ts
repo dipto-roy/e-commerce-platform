@@ -102,16 +102,32 @@ export class CreateOrderTables1703000000000 implements MigrationInterface {
     `);
 
     // Create indexes for better performance
-    await queryRunner.query(`CREATE INDEX "IDX_orders_userId" ON "orders" ("userId")`);
-    await queryRunner.query(`CREATE INDEX "IDX_orders_status" ON "orders" ("status")`);
-    await queryRunner.query(`CREATE INDEX "IDX_orders_placedAt" ON "orders" ("placedAt")`);
-    
-    await queryRunner.query(`CREATE INDEX "IDX_order_items_orderId" ON "order_items" ("orderId")`);
-    await queryRunner.query(`CREATE INDEX "IDX_order_items_productId" ON "order_items" ("productId")`);
-    await queryRunner.query(`CREATE INDEX "IDX_order_items_sellerId" ON "order_items" ("sellerId")`);
-    
-    await queryRunner.query(`CREATE INDEX "IDX_financial_records_sellerId" ON "financial_records" ("sellerId")`);
-    await queryRunner.query(`CREATE INDEX "IDX_financial_records_status" ON "financial_records" ("status")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_orders_userId" ON "orders" ("userId")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_orders_status" ON "orders" ("status")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_orders_placedAt" ON "orders" ("placedAt")`,
+    );
+
+    await queryRunner.query(
+      `CREATE INDEX "IDX_order_items_orderId" ON "order_items" ("orderId")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_order_items_productId" ON "order_items" ("productId")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_order_items_sellerId" ON "order_items" ("sellerId")`,
+    );
+
+    await queryRunner.query(
+      `CREATE INDEX "IDX_financial_records_sellerId" ON "financial_records" ("sellerId")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_financial_records_status" ON "financial_records" ("status")`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

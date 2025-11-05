@@ -3,7 +3,6 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 @Injectable()
 export class FileUploadService {
   async processFileUpload(file: Express.Multer.File) {
-
     if (!file) {
       throw new BadRequestException('No File Uploaded!');
     }
@@ -26,7 +25,7 @@ export class FileUploadService {
     };
   }
 
-  ShowFile(file: Express.Multer.File){
+  ShowFile(file: Express.Multer.File) {
     return {
       filename: file.filename || file.originalname,
       mimetype: file.mimetype,

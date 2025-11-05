@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Cart } from './entities/cart.entity';
@@ -19,7 +23,7 @@ export class CartService {
 
     // Check if product exists and is active
     const product = await this.productRepository.findOne({
-      where: { id: productId, isActive: true }
+      where: { id: productId, isActive: true },
     });
 
     if (!product) {
@@ -28,7 +32,7 @@ export class CartService {
 
     // Check if item already exists in cart
     const existingCartItem = await this.cartRepository.findOne({
-      where: { userId, productId, isActive: true }
+      where: { userId, productId, isActive: true },
     });
 
     if (existingCartItem) {
@@ -69,29 +73,33 @@ export class CartService {
             imageUrl: true,
             altText: true,
             isActive: true,
-            sortOrder: true
+            sortOrder: true,
           },
           seller: {
             id: true,
             username: true,
-            phone: true
-          }
-        }
+            phone: true,
+          },
+        },
       },
       order: {
         createdAt: 'DESC',
         product: {
           images: {
-            sortOrder: 'ASC'
-          }
-        }
-      }
+            sortOrder: 'ASC',
+          },
+        },
+      },
     });
   }
 
-  async updateCartItem(userId: number, cartId: number, updateCartDto: UpdateCartDto): Promise<Cart> {
+  async updateCartItem(
+    userId: number,
+    cartId: number,
+    updateCartDto: UpdateCartDto,
+  ): Promise<Cart> {
     const cartItem = await this.cartRepository.findOne({
-      where: { id: cartId, userId, isActive: true }
+      where: { id: cartId, userId, isActive: true },
     });
 
     if (!cartItem) {
@@ -104,7 +112,7 @@ export class CartService {
 
   async removeFromCart(userId: number, cartId: number): Promise<void> {
     const cartItem = await this.cartRepository.findOne({
-      where: { id: cartId, userId, isActive: true }
+      where: { id: cartId, userId, isActive: true },
     });
 
     if (!cartItem) {
@@ -118,16 +126,19 @@ export class CartService {
   async clearCart(userId: number): Promise<void> {
     // Delete active cart items instead of updating to avoid unique constraint violation
     await this.cartRepository.delete({
-      userId, 
-      isActive: true
+      userId,
+      isActive: true,
     });
   }
 
   async getCartTotal(userId: number): Promise<number> {
     const cartItems = await this.cartRepository.find({
-      where: { userId, isActive: true }
+      where: { userId, isActive: true },
     });
 
-    return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+    return cartItems.reduce(
+      (total, item) => total + item.price * item.quantity,
+      0,
+    );
   }
 }

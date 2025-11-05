@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -29,7 +33,9 @@ export class AuthServiceNew {
     private configService: ConfigService,
   ) {}
 
-  async register(registerDto: RegisterDto): Promise<{ message: string; user: any }> {
+  async register(
+    registerDto: RegisterDto,
+  ): Promise<{ message: string; user: any }> {
     const { username, email, password, fullName, phone, role } = registerDto;
 
     // Check if user already exists
@@ -38,7 +44,9 @@ export class AuthServiceNew {
     });
 
     if (existingUser) {
-      throw new BadRequestException('User with this email or username already exists');
+      throw new BadRequestException(
+        'User with this email or username already exists',
+      );
     }
 
     // Hash password
@@ -83,13 +91,17 @@ export class AuthServiceNew {
     };
   }
 
-  async login(loginDto: LoginDto, ipAddress?: string, userAgent?: string): Promise<{ tokens: TokenPair; user: any; message: string }> {
+  async login(
+    loginDto: LoginDto,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<{ tokens: TokenPair; user: any; message: string }> {
     const { email, password } = loginDto;
 
     try {
       // Find user by email
       const user = await this.usersRepository.findOne({ where: { email } });
-      
+
       if (!user || !user.isActive) {
         try {
           await this.logLoginAttempt({
@@ -99,7 +111,7 @@ export class AuthServiceNew {
             success: false,
             errorMessage: 'User not found or inactive',
             ipAddress,
-            userAgent
+            userAgent,
           });
         } catch (logError) {
           console.warn('Failed to log login attempt:', logError.message);
@@ -109,12 +121,15 @@ export class AuthServiceNew {
 
       // Validate password
       console.log('🔧 Validating password for:', email);
-      console.log('🔧 Stored password hash:', user.password?.substring(0, 20) + '...');
+      console.log(
+        '🔧 Stored password hash:',
+        user.password?.substring(0, 20) + '...',
+      );
       console.log('🔧 Provided password:', password);
-      
+
       const isPasswordValid = await bcrypt.compare(password, user.password);
       console.log('🔧 Password validation result:', isPasswordValid);
-      
+
       if (!isPasswordValid) {
         try {
           await this.logLoginAttempt({
@@ -124,7 +139,7 @@ export class AuthServiceNew {
             success: false,
             errorMessage: 'Invalid password',
             ipAddress,
-            userAgent
+            userAgent,
           });
         } catch (logError) {
           console.warn('Failed to log login attempt:', logError.message);
@@ -141,9 +156,11 @@ export class AuthServiceNew {
           success: false,
           errorMessage: 'Seller account not verified',
           ipAddress,
-          userAgent
+          userAgent,
         });
-        throw new UnauthorizedException('Your seller account is pending verification. Please contact support.');
+        throw new UnauthorizedException(
+          'Your seller account is pending verification. Please contact support.',
+        );
       }
 
       // Generate tokens
@@ -161,7 +178,7 @@ export class AuthServiceNew {
           success: true,
           errorMessage: null,
           ipAddress,
-          userAgent
+          userAgent,
         });
       } catch (logError) {
         console.warn('Failed to log login attempt:', logError.message);
@@ -171,14 +188,14 @@ export class AuthServiceNew {
       return {
         tokens,
         user: userWithoutPassword,
-        message: 'Login successful'
+        message: 'Login successful',
       };
     } catch (error) {
       // If it's already an UnauthorizedException, rethrow it
       if (error instanceof UnauthorizedException) {
         throw error;
       }
-      
+
       // Log unexpected errors
       try {
         await this.logLoginAttempt({
@@ -188,17 +205,21 @@ export class AuthServiceNew {
           success: false,
           errorMessage: `Unexpected error: ${error.message}`,
           ipAddress,
-          userAgent
+          userAgent,
         });
       } catch (logError) {
         console.warn('Failed to log failed login attempt:', logError.message);
       }
-      
+
       throw new UnauthorizedException('Login failed');
     }
   }
 
-  async generateTokenPair(user: User, ipAddress?: string, userAgent?: string): Promise<TokenPair> {
+  async generateTokenPair(
+    user: User,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<TokenPair> {
     const payload = {
       sub: user.id,
       username: user.username,
@@ -210,16 +231,20 @@ export class AuthServiceNew {
 
     // Generate access token (short-lived)
     const access_token = this.jwtService.sign(payload, {
-      expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') || '15m',
+      expiresIn:
+        this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') || '15m',
     });
 
     // Generate refresh token (long-lived)
     const refresh_token = this.jwtService.sign(
       { sub: user.id, type: 'refresh' },
       {
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET') || 'refresh_secret_key',
-        expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') || '7d',
-      }
+        secret:
+          this.configService.get<string>('JWT_REFRESH_SECRET') ||
+          'refresh_secret_key',
+        expiresIn:
+          this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') || '7d',
+      },
     );
 
     // Store refresh token in database
@@ -229,7 +254,7 @@ export class AuthServiceNew {
     // Revoke existing refresh tokens for this user
     await this.refreshTokenRepository.update(
       { userId: user.id, isRevoked: false },
-      { isRevoked: true }
+      { isRevoked: true },
     );
 
     // Create new refresh token record
@@ -246,7 +271,11 @@ export class AuthServiceNew {
     return { access_token, refresh_token };
   }
 
-  async refreshTokens(refreshToken: string, ipAddress?: string, userAgent?: string): Promise<TokenPair> {
+  async refreshTokens(
+    refreshToken: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<TokenPair> {
     const tokenRecord = await this.refreshTokenRepository.findOne({
       where: { token: refreshToken, isRevoked: false },
       relations: ['user'],
@@ -261,17 +290,24 @@ export class AuthServiceNew {
     }
 
     // Generate new token pair
-    const tokens = await this.generateTokenPair(tokenRecord.user, ipAddress, userAgent);
+    const tokens = await this.generateTokenPair(
+      tokenRecord.user,
+      ipAddress,
+      userAgent,
+    );
 
     return tokens;
   }
 
-  async validateRefreshToken(refreshToken: string, userId: number): Promise<User | null> {
+  async validateRefreshToken(
+    refreshToken: string,
+    userId: number,
+  ): Promise<User | null> {
     const tokenRecord = await this.refreshTokenRepository.findOne({
-      where: { 
-        token: refreshToken, 
-        userId, 
-        isRevoked: false 
+      where: {
+        token: refreshToken,
+        userId,
+        isRevoked: false,
       },
       relations: ['user'],
     });
@@ -287,7 +323,7 @@ export class AuthServiceNew {
     if (refreshToken) {
       await this.refreshTokenRepository.update(
         { token: refreshToken },
-        { isRevoked: true }
+        { isRevoked: true },
       );
     }
   }
@@ -295,7 +331,7 @@ export class AuthServiceNew {
   async logoutAllDevices(userId: number): Promise<void> {
     await this.refreshTokenRepository.update(
       { userId, isRevoked: false },
-      { isRevoked: true }
+      { isRevoked: true },
     );
   }
 
@@ -317,7 +353,7 @@ export class AuthServiceNew {
         errorMessage: logData.errorMessage,
         ipAddress: logData.ipAddress,
         userAgent: logData.userAgent,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
 
       await this.loginLogRepository.save(loginLog);
@@ -329,8 +365,8 @@ export class AuthServiceNew {
 
   async validateUser(email: string, password: string): Promise<any> {
     const user = await this.usersRepository.findOne({ where: { email } });
-    
-    if (user && await bcrypt.compare(password, user.password)) {
+
+    if (user && (await bcrypt.compare(password, user.password))) {
       const { password, ...result } = user;
       return result;
     }

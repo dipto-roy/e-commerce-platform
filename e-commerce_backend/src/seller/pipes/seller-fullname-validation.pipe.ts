@@ -8,15 +8,17 @@ export class SellerFullNameValidationPipe implements PipeTransform {
     }
 
     let fullName = value.fullName.trim();
-    
+
     // Remove extra spaces between words
     fullName = fullName.replace(/\s+/g, ' ');
-    
+
     // Capitalize first letter of each word
     fullName = fullName.replace(/\b\w/g, (char) => char.toUpperCase());
-    
+
     if (fullName.length < 2) {
-      throw new BadRequestException('Full name must be at least 2 characters long');
+      throw new BadRequestException(
+        'Full name must be at least 2 characters long',
+      );
     }
 
     if (fullName.length > 150) {
@@ -28,7 +30,9 @@ export class SellerFullNameValidationPipe implements PipeTransform {
     const lowerName = fullName.toLowerCase();
     for (const word of inappropriateWords) {
       if (lowerName.includes(word)) {
-        throw new BadRequestException('Full name contains inappropriate content');
+        throw new BadRequestException(
+          'Full name contains inappropriate content',
+        );
       }
     }
 

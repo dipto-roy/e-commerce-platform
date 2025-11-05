@@ -8,9 +8,11 @@ import { Seller } from '../seller/entities/seller.entity';
 import { User } from '../users/entities/unified-user.entity';
 import { ImageUploadModule } from './image-upload/image-upload.module';
 @Module({
-  imports: [TypeOrmModule.forFeature([Product, ProductImage, Seller, User]), ImageUploadModule],
+  imports: [
+    TypeOrmModule.forFeature([Product, ProductImage, Seller, User]),
+    ImageUploadModule,
+  ],
   providers: [ProductService],
-  controllers: [ProductController]
+  controllers: [ProductController],
 })
-
 export class ProductModule {}

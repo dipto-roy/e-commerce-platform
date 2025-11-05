@@ -1,5 +1,14 @@
 import { Product } from '../../product/entities/product.entity';
-import { Entity, PrimaryColumn, Column, BeforeInsert, BeforeUpdate, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import {
+  Entity,
+  PrimaryColumn,
+  Column,
+  BeforeInsert,
+  BeforeUpdate,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany,
+} from 'typeorm';
 import * as bcrypt from 'bcrypt';
 
 @Entity('sellers')
@@ -58,18 +67,19 @@ export class Seller {
   generateId(): void {
     // Custom ID generation logic for sellers
     const timestamp = Date.now().toString();
-    const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    const randomNum = Math.floor(Math.random() * 1000)
+      .toString()
+      .padStart(3, '0');
     const prefix = 'SELLER';
     this.id = `${prefix}_${timestamp}_${randomNum}`;
   }
 
-  
-  @OneToMany(() => Product, (product) => product.seller, { 
+  @OneToMany(() => Product, (product) => product.seller, {
     cascade: ['insert', 'update'],
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE',
     eager: false,
-    orphanedRowAction: 'delete'
+    orphanedRowAction: 'delete',
   })
   products: Product[];
 }

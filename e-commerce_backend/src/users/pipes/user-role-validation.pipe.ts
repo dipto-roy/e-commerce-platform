@@ -16,7 +16,9 @@ export class UserRoleValidationPipe implements PipeTransform {
     const trimmedValue = value.trim().toLowerCase();
 
     if (!this.validRoles.includes(trimmedValue)) {
-      throw new BadRequestException(`Role must be one of: ${this.validRoles.join(', ')}`);
+      throw new BadRequestException(
+        `Role must be one of: ${this.validRoles.join(', ')}`,
+      );
     }
 
     return trimmedValue;

@@ -1,4 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { User } from '../../users/entities/unified-user.entity';
 import { Product } from '../../product/entities/product.entity';
 
@@ -28,11 +36,11 @@ export class Cart {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @ManyToOne(() => User, user => user.id)
+  @ManyToOne(() => User, (user) => user.id)
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @ManyToOne(() => Product, product => product.id)
+  @ManyToOne(() => Product, (product) => product.id)
   @JoinColumn({ name: 'productId' })
   product: Product;
 }

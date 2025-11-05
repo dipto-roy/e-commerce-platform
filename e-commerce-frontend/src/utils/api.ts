@@ -115,10 +115,10 @@ export const generalAPI = {
   getProductImage: (id: number) => api.get(`/products/product-image/${id}`),
   
   // Serve image file
-  getImageFile: (filename: string) => `http://localhost:4002/products/serve-image/${filename}`,
+  getImageFile: (filename: string) => `http://localhost:4002/api/v1/products/serve-image/${filename}`,
   
   // Static image URL
-  getStaticImage: (filename: string) => `http://localhost:4002/products/static/${filename}`,
+  getStaticImage: (filename: string) => `http://localhost:4002/api/v1/products/static/${filename}`,
 };
 
 // Cart API functions

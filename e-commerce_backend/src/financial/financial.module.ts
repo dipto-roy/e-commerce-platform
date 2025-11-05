@@ -15,8 +15,8 @@ import { User } from '../users/entities/unified-user.entity';
       Order,
       OrderItem,
       Payment,
-      User
-    ])
+      User,
+    ]),
   ],
   controllers: [FinancialController],
   providers: [FinancialService],

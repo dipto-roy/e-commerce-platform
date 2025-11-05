@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ConflictException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, MoreThan, LessThan, In } from 'typeorm';
 import { FinancialRecord } from '../order/entities/financial-record.entity';
@@ -6,7 +11,11 @@ import { Order } from '../order/entities/order.entity';
 import { OrderItem } from '../order/entities/order-item.entity';
 import { Payment } from '../order/entities/payment.entity';
 import { User } from '../users/entities/unified-user.entity';
-import { FinancialStatus, PaymentStatus, OrderStatus } from '../order/entities/order.enums';
+import {
+  FinancialStatus,
+  PaymentStatus,
+  OrderStatus,
+} from '../order/entities/order.enums';
 import { Role } from '../users/entities/role.enum';
 
 @Injectable()
@@ -39,13 +48,25 @@ export class FinancialService {
     const pendingPayouts = await this.getPendingPayouts();
 
     // Monthly metrics
-    const monthlyRevenue = await this.getPlatformRevenueForPeriod(monthStart, now);
-    const monthlyPlatformFees = await this.getPlatformFeesForPeriod(monthStart, now);
+    const monthlyRevenue = await this.getPlatformRevenueForPeriod(
+      monthStart,
+      now,
+    );
+    const monthlyPlatformFees = await this.getPlatformFeesForPeriod(
+      monthStart,
+      now,
+    );
     const monthlyPayouts = await this.getPayoutsForPeriod(monthStart, now);
 
     // Yearly metrics
-    const yearlyRevenue = await this.getPlatformRevenueForPeriod(yearStart, now);
-    const yearlyPlatformFees = await this.getPlatformFeesForPeriod(yearStart, now);
+    const yearlyRevenue = await this.getPlatformRevenueForPeriod(
+      yearStart,
+      now,
+    );
+    const yearlyPlatformFees = await this.getPlatformFeesForPeriod(
+      yearStart,
+      now,
+    );
 
     // Active sellers with earnings
     const activeSellersCount = await this.getActiveSellerCount();
@@ -58,18 +79,18 @@ export class FinancialService {
         totalPayouts,
         pendingPayouts,
         netPlatformEarnings: totalPlatformFees,
-        activeSellersCount
+        activeSellersCount,
       },
       monthly: {
         revenue: monthlyRevenue,
         platformFees: monthlyPlatformFees,
-        payouts: monthlyPayouts
+        payouts: monthlyPayouts,
       },
       yearly: {
         revenue: yearlyRevenue,
-        platformFees: yearlyPlatformFees
+        platformFees: yearlyPlatformFees,
       },
-      topSellers: topSellersByRevenue
+      topSellers: topSellersByRevenue,
     };
   }
 
@@ -78,7 +99,7 @@ export class FinancialService {
   // Get seller financial summary
   async getSellerFinancialSummary(sellerId: number) {
     const seller = await this.userRepository.findOne({
-      where: { id: sellerId, role: Role.SELLER }
+      where: { id: sellerId, role: Role.SELLER },
     });
 
     if (!seller) {
@@ -87,22 +108,31 @@ export class FinancialService {
 
     const financialRecords = await this.financialRecordRepository.find({
       where: { sellerId },
-      relations: ['orderItem']
+      relations: ['orderItem'],
     });
 
-    const totalEarnings = financialRecords.reduce((sum, record) => sum + record.amount, 0);
+    const totalEarnings = financialRecords.reduce(
+      (sum, record) => sum + record.amount,
+      0,
+    );
     const pendingAmount = financialRecords
-      .filter(r => r.status === FinancialStatus.PENDING)
+      .filter((r) => r.status === FinancialStatus.PENDING)
       .reduce((sum, r) => sum + r.amount, 0);
     const clearedAmount = financialRecords
-      .filter(r => r.status === FinancialStatus.CLEARED)
+      .filter((r) => r.status === FinancialStatus.CLEARED)
       .reduce((sum, r) => sum + r.amount, 0);
     const paidAmount = financialRecords
-      .filter(r => r.status === FinancialStatus.PAID)
+      .filter((r) => r.status === FinancialStatus.PAID)
       .reduce((sum, r) => sum + r.amount, 0);
 
-    const totalPlatformFees = financialRecords.reduce((sum, record) => sum + (record.platformFee || 0), 0);
-    const totalProcessingFees = financialRecords.reduce((sum, record) => sum + (record.processingFee || 0), 0);
+    const totalPlatformFees = financialRecords.reduce(
+      (sum, record) => sum + (record.platformFee || 0),
+      0,
+    );
+    const totalProcessingFees = financialRecords.reduce(
+      (sum, record) => sum + (record.processingFee || 0),
+      0,
+    );
     const netEarnings = totalEarnings - totalPlatformFees - totalProcessingFees;
 
     // Get monthly breakdown for current year
@@ -113,7 +143,7 @@ export class FinancialService {
         id: seller.id,
         username: seller.username,
         fullName: seller.fullName,
-        isVerified: seller.isVerified
+        isVerified: seller.isVerified,
       },
       summary: {
         totalEarnings,
@@ -123,31 +153,38 @@ export class FinancialService {
         totalPlatformFees,
         totalProcessingFees,
         netEarnings,
-        totalTransactions: financialRecords.length
+        totalTransactions: financialRecords.length,
       },
-      monthlyBreakdown
+      monthlyBreakdown,
     };
   }
 
   // Process seller payout
-  async processSellerPayout(sellerId: number, adminId: number, payoutData: {
-    recordIds: number[];
-    payoutMethod: string;
-    payoutReference?: string;
-    notes?: string;
-  }) {
+  async processSellerPayout(
+    sellerId: number,
+    adminId: number,
+    payoutData: {
+      recordIds: number[];
+      payoutMethod: string;
+      payoutReference?: string;
+      notes?: string;
+    },
+  ) {
     const { recordIds, payoutMethod, payoutReference, notes } = payoutData;
 
     // Verify all records belong to seller and are in CLEARED status
     const records = await this.financialRecordRepository.find({
-      where: { id: In(recordIds), sellerId, status: FinancialStatus.CLEARED }
+      where: { id: In(recordIds), sellerId, status: FinancialStatus.CLEARED },
     });
 
     if (records.length !== recordIds.length) {
       throw new ConflictException('Some records are not eligible for payout');
     }
 
-    const totalPayoutAmount = records.reduce((sum, record) => sum + record.netAmount, 0);
+    const totalPayoutAmount = records.reduce(
+      (sum, record) => sum + record.netAmount,
+      0,
+    );
 
     // Update records to PAID status
     await this.financialRecordRepository.update(
@@ -155,8 +192,8 @@ export class FinancialService {
       {
         status: FinancialStatus.PAID,
         payoutId: payoutReference,
-        paidAt: new Date()
-      }
+        paidAt: new Date(),
+      },
     );
 
     return {
@@ -165,21 +202,25 @@ export class FinancialService {
       totalAmount: totalPayoutAmount,
       recordsCount: records.length,
       payoutReference,
-      processedBy: adminId
+      processedBy: adminId,
     };
   }
 
   // Get seller payout history
-  async getSellerPayoutHistory(sellerId: number, page: number = 1, limit: number = 20) {
+  async getSellerPayoutHistory(
+    sellerId: number,
+    page: number = 1,
+    limit: number = 20,
+  ) {
     const [records, total] = await this.financialRecordRepository.findAndCount({
-      where: { 
+      where: {
         sellerId,
-        status: FinancialStatus.PAID
+        status: FinancialStatus.PAID,
       },
       relations: ['orderItem'],
       order: { paidAt: 'DESC' },
       skip: (page - 1) * limit,
-      take: limit
+      take: limit,
     });
 
     return {
@@ -188,8 +229,8 @@ export class FinancialService {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit)
-      }
+        totalPages: Math.ceil(total / limit),
+      },
     };
   }
 
@@ -203,14 +244,18 @@ export class FinancialService {
     const payments = await this.paymentRepository.find({
       where: {
         status: PaymentStatus.COMPLETED,
-        createdAt: Between(start, end)
+        createdAt: Between(start, end),
       },
-      relations: ['order']
+      relations: ['order'],
     });
 
-    const totalRevenue = payments.reduce((sum, payment) => sum + payment.amount, 0);
+    const totalRevenue = payments.reduce(
+      (sum, payment) => sum + payment.amount,
+      0,
+    );
     const transactionCount = payments.length;
-    const averageTransactionValue = transactionCount > 0 ? totalRevenue / transactionCount : 0;
+    const averageTransactionValue =
+      transactionCount > 0 ? totalRevenue / transactionCount : 0;
 
     // Daily breakdown
     const dailyBreakdown = this.getDailyBreakdown(payments, start, end);
@@ -223,21 +268,27 @@ export class FinancialService {
       summary: {
         totalRevenue,
         transactionCount,
-        averageTransactionValue
+        averageTransactionValue,
       },
       dailyBreakdown,
-      paymentMethodBreakdown
+      paymentMethodBreakdown,
     };
   }
 
   // Get seller revenue comparison
-  async getSellerRevenueComparison(period: 'month' | 'quarter' | 'year' = 'month') {
+  async getSellerRevenueComparison(
+    period: 'month' | 'quarter' | 'year' = 'month',
+  ) {
     const now = new Date();
     let startDate: Date;
 
     switch (period) {
       case 'quarter':
-        startDate = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+        startDate = new Date(
+          now.getFullYear(),
+          Math.floor(now.getMonth() / 3) * 3,
+          1,
+        );
         break;
       case 'year':
         startDate = new Date(now.getFullYear(), 0, 1);
@@ -256,7 +307,7 @@ export class FinancialService {
         'SUM(fr.amount) as totalRevenue',
         'SUM(fr.platformFee) as totalPlatformFees',
         'SUM(fr.netAmount) as netRevenue',
-        'COUNT(fr.id) as transactionCount'
+        'COUNT(fr.id) as transactionCount',
       ])
       .where('fr.createdAt >= :startDate', { startDate })
       .groupBy('fr.sellerId, seller.username, seller.fullName')
@@ -267,15 +318,15 @@ export class FinancialService {
       period,
       startDate,
       endDate: now,
-      sellerRevenues: sellerRevenues.map(seller => ({
+      sellerRevenues: sellerRevenues.map((seller) => ({
         sellerId: seller.sellerId,
         username: seller.username,
         fullName: seller.fullName,
         totalRevenue: parseFloat(seller.totalRevenue) || 0,
         totalPlatformFees: parseFloat(seller.totalPlatformFees) || 0,
         netRevenue: parseFloat(seller.netRevenue) || 0,
-        transactionCount: parseInt(seller.transactionCount) || 0
-      }))
+        transactionCount: parseInt(seller.transactionCount) || 0,
+      })),
     };
   }
 
@@ -316,31 +367,49 @@ export class FinancialService {
     return parseFloat(result.total) || 0;
   }
 
-  private async getPlatformRevenueForPeriod(startDate: Date, endDate: Date): Promise<number> {
+  private async getPlatformRevenueForPeriod(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<number> {
     const result = await this.paymentRepository
       .createQueryBuilder('payment')
       .select('SUM(payment.amount)', 'total')
       .where('payment.status = :status', { status: PaymentStatus.COMPLETED })
-      .andWhere('payment.createdAt BETWEEN :start AND :end', { start: startDate, end: endDate })
+      .andWhere('payment.createdAt BETWEEN :start AND :end', {
+        start: startDate,
+        end: endDate,
+      })
       .getRawOne();
     return parseFloat(result.total) || 0;
   }
 
-  private async getPlatformFeesForPeriod(startDate: Date, endDate: Date): Promise<number> {
+  private async getPlatformFeesForPeriod(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<number> {
     const result = await this.financialRecordRepository
       .createQueryBuilder('fr')
       .select('SUM(fr.platformFee)', 'total')
-      .where('fr.createdAt BETWEEN :start AND :end', { start: startDate, end: endDate })
+      .where('fr.createdAt BETWEEN :start AND :end', {
+        start: startDate,
+        end: endDate,
+      })
       .getRawOne();
     return parseFloat(result.total) || 0;
   }
 
-  private async getPayoutsForPeriod(startDate: Date, endDate: Date): Promise<number> {
+  private async getPayoutsForPeriod(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<number> {
     const result = await this.financialRecordRepository
       .createQueryBuilder('fr')
       .select('SUM(fr.netAmount)', 'total')
       .where('fr.status = :status', { status: FinancialStatus.PAID })
-      .andWhere('fr.payoutDate BETWEEN :start AND :end', { start: startDate, end: endDate })
+      .andWhere('fr.payoutDate BETWEEN :start AND :end', {
+        start: startDate,
+        end: endDate,
+      })
       .getRawOne();
     return parseFloat(result.total) || 0;
   }
@@ -362,7 +431,7 @@ export class FinancialService {
         'seller.username as username',
         'seller.fullName as fullName',
         'SUM(fr.amount) as totalRevenue',
-        'COUNT(fr.id) as transactionCount'
+        'COUNT(fr.id) as transactionCount',
       ])
       .groupBy('fr.sellerId, seller.username, seller.fullName')
       .orderBy('totalRevenue', 'DESC')
@@ -381,7 +450,7 @@ export class FinancialService {
         'SUM(fr.amount) as totalAmount',
         'SUM(fr.platformFee) as totalPlatformFees',
         'SUM(fr.netAmount) as netAmount',
-        'COUNT(fr.id) as transactionCount'
+        'COUNT(fr.id) as transactionCount',
       ])
       .where('fr.sellerId = :sellerId', { sellerId })
       .andWhere('fr.createdAt >= :yearStart', { yearStart })
@@ -389,18 +458,22 @@ export class FinancialService {
       .orderBy('month', 'ASC')
       .getRawMany();
 
-    return monthlyData.map(data => ({
+    return monthlyData.map((data) => ({
       month: parseInt(data.month),
       totalAmount: parseFloat(data.totalAmount) || 0,
       totalPlatformFees: parseFloat(data.totalPlatformFees) || 0,
       netAmount: parseFloat(data.netAmount) || 0,
-      transactionCount: parseInt(data.transactionCount) || 0
+      transactionCount: parseInt(data.transactionCount) || 0,
     }));
   }
 
-  private getDailyBreakdown(payments: Payment[], startDate: Date, endDate: Date) {
-    const dailyData = new Map<string, { revenue: number, count: number }>();
-    
+  private getDailyBreakdown(
+    payments: Payment[],
+    startDate: Date,
+    endDate: Date,
+  ) {
+    const dailyData = new Map<string, { revenue: number; count: number }>();
+
     // Initialize all days in range with zero values
     const currentDate = new Date(startDate);
     while (currentDate <= endDate) {
@@ -410,31 +483,31 @@ export class FinancialService {
     }
 
     // Populate with actual data
-    payments.forEach(payment => {
+    payments.forEach((payment) => {
       const dateKey = payment.createdAt.toISOString().split('T')[0];
       const existing = dailyData.get(dateKey) || { revenue: 0, count: 0 };
       dailyData.set(dateKey, {
         revenue: existing.revenue + payment.amount,
-        count: existing.count + 1
+        count: existing.count + 1,
       });
     });
 
     return Array.from(dailyData.entries()).map(([date, data]) => ({
       date,
       revenue: data.revenue,
-      transactionCount: data.count
+      transactionCount: data.count,
     }));
   }
 
   private getPaymentMethodBreakdown(payments: Payment[]) {
-    const methodData = new Map<string, { revenue: number, count: number }>();
+    const methodData = new Map<string, { revenue: number; count: number }>();
 
-    payments.forEach(payment => {
+    payments.forEach((payment) => {
       const method = payment.paymentMethod?.type || 'Unknown';
       const existing = methodData.get(method) || { revenue: 0, count: 0 };
       methodData.set(method, {
         revenue: existing.revenue + payment.amount,
-        count: existing.count + 1
+        count: existing.count + 1,
       });
     });
 
@@ -442,7 +515,8 @@ export class FinancialService {
       paymentMethod: method,
       revenue: data.revenue,
       transactionCount: data.count,
-      percentage: (data.revenue / payments.reduce((sum, p) => sum + p.amount, 0)) * 100
+      percentage:
+        (data.revenue / payments.reduce((sum, p) => sum + p.amount, 0)) * 100,
     }));
   }
 }

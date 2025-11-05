@@ -1,5 +1,14 @@
-import { IsEmail, IsNotEmpty, IsString, Matches, MaxLength, MinLength, IsOptional, IsEnum, IsIn } from "class-validator";
-import { Role } from "../../../users/entities/role.enum";
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
+  IsOptional,
+  IsIn,
+} from 'class-validator';
+//import { Role } from '../../../users/entities/role.enum';
 
 export class RegisterDto {
   @IsNotEmpty({ message: 'Username is required' })
@@ -28,6 +37,8 @@ export class RegisterDto {
   fullName?: string;
 
   @IsNotEmpty({ message: 'Role is required' })
-  @IsIn(['USER', 'ADMIN', 'SELLER'], { message: 'Role must be one of: USER, ADMIN, SELLER' })
+  @IsIn(['USER', 'ADMIN', 'SELLER'], {
+    message: 'Role must be one of: USER, ADMIN, SELLER',
+  })
   role: string;
 }

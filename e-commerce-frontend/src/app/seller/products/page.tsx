@@ -166,7 +166,7 @@ export default function SellerProducts() {
     }
     
     // Use the serve-image endpoint which checks multiple directories
-    const imageUrl = `http://localhost:4002/products/serve-image/${encodeURIComponent(filename)}`;
+    const imageUrl = `http://localhost:4002/api/v1/products/serve-image/${encodeURIComponent(filename)}`;
     console.log(`🖼️ Generated image URL: ${imageUrl} for path: ${imagePath}`);
     return imageUrl;
   };

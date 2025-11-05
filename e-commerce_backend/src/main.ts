@@ -7,12 +7,28 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { config } from 'dotenv';
 import * as cookieParser from 'cookie-parser';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import helmet from 'helmet';
 config();
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   const configService = app.get(ConfigService);
+
+  // 🔒 Security: Helmet for security headers
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          scriptSrc: ["'self'"],
+          imgSrc: ["'self'", 'data:', 'https:'],
+        },
+      },
+      crossOriginEmbedderPolicy: false, // Allow embedding for development
+    }),
+  );
 
   // Add cookie parser middleware
   app.use(cookieParser());
@@ -21,9 +37,18 @@ async function bootstrap() {
   // This prepares the structure for versioned APIs (/api/v1, /api/v2, etc.)
   app.setGlobalPrefix('api/v1');
 
-  app.useGlobalPipes(new ValidationPipe());
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true, // Strip properties that don't have decorators
+      forbidNonWhitelisted: true, // Throw error if non-whitelisted values are provided
+      transform: true, // Automatically transform payloads to DTO instances
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+    }),
+  );
 
-  // Get CORS origins from environment variable or use defaults
+  // 🔒 Security: Get CORS origins from environment variable or use defaults
   const corsOrigins = process.env.CORS_ORIGIN
     ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim())
     : [
@@ -33,11 +58,24 @@ async function bootstrap() {
         'http://localhost:7000', // Previous frontend port
       ];
 
+  console.log('🔒 CORS Origins:', corsOrigins);
+
   app.enableCors({
-    origin: corsOrigins,
-    credentials: true,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, Postman, or curl)
+      if (!origin) return callback(null, true);
+
+      if (corsOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.warn(`⚠️  Blocked CORS request from origin: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true, // Allow cookies to be sent
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    exposedHeaders: ['set-cookie'],
   });
 
   // FIXED: Proper static file serving configuration

@@ -8,16 +8,18 @@ export class SellerUsernameValidationPipe implements PipeTransform {
     }
 
     const username = typeof value === 'string' ? value : value.username;
-    
+
     if (!username) {
       throw new BadRequestException('Username cannot be empty');
     }
 
     // Clean and normalize username
     const cleanUsername = username.toString().trim().toLowerCase();
-    
+
     if (cleanUsername.length < 3) {
-      throw new BadRequestException('Username must be at least 3 characters long');
+      throw new BadRequestException(
+        'Username must be at least 3 characters long',
+      );
     }
 
     if (cleanUsername.length > 100) {
@@ -27,9 +29,13 @@ export class SellerUsernameValidationPipe implements PipeTransform {
     // Check for reserved usernames
     const reservedUsernames = ['admin', 'root', 'system', 'seller', 'test'];
     if (reservedUsernames.includes(cleanUsername)) {
-      throw new BadRequestException('This username is reserved and cannot be used');
+      throw new BadRequestException(
+        'This username is reserved and cannot be used',
+      );
     }
 
-    return typeof value === 'string' ? cleanUsername : { ...value, username: cleanUsername };
+    return typeof value === 'string'
+      ? cleanUsername
+      : { ...value, username: cleanUsername };
   }
 }

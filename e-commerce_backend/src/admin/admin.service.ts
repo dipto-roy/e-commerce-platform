@@ -175,7 +175,9 @@ export class AdminService {
    * Get dashboard trends data for charts
    * Returns historical data for users, sellers, and products
    */
-  async getDashboardTrends(period: TrendPeriod = TrendPeriod.SEVEN_DAYS): Promise<{
+  async getDashboardTrends(
+    period: TrendPeriod = TrendPeriod.SEVEN_DAYS,
+  ): Promise<{
     data: TrendDataPoint[];
     period: string;
     startDate: string;
@@ -184,8 +186,8 @@ export class AdminService {
     try {
       const endDate = new Date();
       endDate.setHours(23, 59, 59, 999); // End of today
-      
-      let startDate = new Date();
+
+      const startDate = new Date();
       let daysCount = 7;
 
       // Calculate start date based on period
@@ -207,10 +209,12 @@ export class AdminService {
           daysCount = 365;
           break;
       }
-      
+
       startDate.setHours(0, 0, 0, 0); // Start of day
 
-      this.logger.log(`Fetching trends from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+      this.logger.log(
+        `Fetching trends from ${startDate.toISOString()} to ${endDate.toISOString()}`,
+      );
 
       // Generate date array
       const dates: Date[] = [];
@@ -266,7 +270,10 @@ export class AdminService {
         endDate: this.formatDate(endDate),
       };
     } catch (error) {
-      this.logger.error(`Error fetching dashboard trends: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error fetching dashboard trends: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }

@@ -1,13 +1,13 @@
-import { 
-  IsString, 
-  IsEmail, 
-  IsNotEmpty, 
-  IsOptional, 
-  IsBoolean, 
+import {
+  IsString,
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsBoolean,
   IsIn,
-  MinLength, 
-  MaxLength, 
-  Matches 
+  MinLength,
+  MaxLength,
+  Matches,
 } from 'class-validator';
 import { Role } from '../entities/role.enum';
 
@@ -44,7 +44,9 @@ export class CreateUserDto {
   phone: string;
 
   @IsOptional()
-  @IsIn(['USER', 'ADMIN', 'SELLER'], { message: 'Role must be one of: USER, ADMIN, SELLER' })
+  @IsIn(['USER', 'ADMIN', 'SELLER'], {
+    message: 'Role must be one of: USER, ADMIN, SELLER',
+  })
   role?: string;
 }
 
@@ -53,8 +55,8 @@ export class UpdateUserDto {
   @IsString()
   @MinLength(3, { message: 'Username must be at least 3 characters long' })
   @MaxLength(100, { message: 'Username cannot exceed 100 characters' })
-  @Matches(/^[a-zA-Z0-9_]+$/, { 
-    message: 'Username can only contain letters, numbers, and underscores' 
+  @Matches(/^[a-zA-Z0-9_]+$/, {
+    message: 'Username can only contain letters, numbers, and underscores',
   })
   username?: string;
 
@@ -70,7 +72,9 @@ export class UpdateUserDto {
   phone?: string;
 
   @IsOptional()
-  @IsIn(['USER', 'ADMIN', 'SELLER'], { message: 'Role must be one of: USER, ADMIN, SELLER' })
+  @IsIn(['USER', 'ADMIN', 'SELLER'], {
+    message: 'Role must be one of: USER, ADMIN, SELLER',
+  })
   role?: string;
 
   @IsOptional()

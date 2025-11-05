@@ -17,7 +17,4 @@ export class FileUploadController {
   async uploadFile(@UploadedFile() file: Express.Multer.File) {
     return this.uploadService.processFileUpload(file);
   }
-  
-  
-
 }
