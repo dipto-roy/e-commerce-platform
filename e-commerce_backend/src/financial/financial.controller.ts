@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   Put,
   Body,
   Param,

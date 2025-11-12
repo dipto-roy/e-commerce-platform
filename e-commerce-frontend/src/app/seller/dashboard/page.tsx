@@ -110,6 +110,13 @@ export default function SellerDashboard() {
         isVerified: user.isVerified
       });
       fetchDashboardStats();
+      
+      // Auto-refresh every 30 seconds for live revenue count
+      const interval = setInterval(() => {
+        fetchDashboardStats();
+      }, 30000);
+      
+      return () => clearInterval(interval);
     }
   }, [user]);
 

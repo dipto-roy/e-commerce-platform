@@ -11,6 +11,7 @@ import { User } from '../users/entities/unified-user.entity';
 import { Cart } from '../cart/entities/cart.entity';
 import { NotificationModule } from '../notification/notification.module';
 import { MaillerModule } from '../mailler/mailler.module';
+import { PaymentModule } from '../payment/payment.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { MaillerModule } from '../mailler/mailler.module';
     ]),
     NotificationModule,
     MaillerModule,
+    PaymentModule,
   ],
   controllers: [OrderController],
   providers: [OrderService],

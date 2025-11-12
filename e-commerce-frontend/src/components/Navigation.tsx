@@ -196,7 +196,46 @@ export default function Navigation() {
                       Profile
                     </button>
 
-                    <button
+                    {/* Role-based Dashboard Navigation */}
+                    {user.role === 'ADMIN' && (
+                      <button
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          router.push('/dashboard/admin');
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                      >
+                        <Package className="h-4 w-4" />
+                        <span>Admin Dashboard</span>
+                      </button>
+                    )}
+
+                    {user.role === 'SELLER' && (
+                      <button
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          router.push('/seller/dashboard');
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                      >
+                        <Package className="h-4 w-4" />
+                        <span>Seller Dashboard</span>
+                      </button>
+                    )}
+
+                {/* User role dashboard button */}
+                {user.role === 'USER' && (
+                  <button
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      router.push('/user/dashboard');
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                  >
+                    <User className="h-4 w-4" />
+                    <span>My Dashboard</span>
+                  </button>
+                )}                    <button
                       onClick={() => {
                         setUserMenuOpen(false);
                         router.push('/orders');

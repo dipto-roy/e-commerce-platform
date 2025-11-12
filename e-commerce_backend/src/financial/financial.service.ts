@@ -2,9 +2,11 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Repository, Between, MoreThan, LessThan, In } from 'typeorm';
 import { FinancialRecord } from '../order/entities/financial-record.entity';
 import { Order } from '../order/entities/order.entity';
@@ -14,6 +16,7 @@ import { User } from '../users/entities/unified-user.entity';
 import {
   FinancialStatus,
   PaymentStatus,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   OrderStatus,
 } from '../order/entities/order.enums';
 import { Role } from '../users/entities/role.enum';
@@ -170,6 +173,7 @@ export class FinancialService {
       notes?: string;
     },
   ) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { recordIds, payoutMethod, payoutReference, notes } = payoutData;
 
     // Verify all records belong to seller and are in CLEARED status
@@ -406,7 +410,7 @@ export class FinancialService {
       .createQueryBuilder('fr')
       .select('SUM(fr.netAmount)', 'total')
       .where('fr.status = :status', { status: FinancialStatus.PAID })
-      .andWhere('fr.payoutDate BETWEEN :start AND :end', {
+      .andWhere('fr.paidAt BETWEEN :start AND :end', {
         start: startDate,
         end: endDate,
       })

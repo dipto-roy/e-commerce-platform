@@ -1,10 +1,12 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Trash2, Plus, Minus, ShoppingBag, ArrowLeft, CreditCard } from 'lucide-react';
+import { Trash2, Plus, Minus, ShoppingBag, ArrowLeft, CreditCard, Wallet, CheckCircle, LogIn } from 'lucide-react';
 import { cartAPI } from '@/config/api';
 import { orderAPI } from '@/utils/api';
 import { getImageUrl, handleImageError } from '@/utils/imageUtils';
+import StripeCheckout from '@/components/payment/StripeCheckout';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
 
 interface CartItem {
   id: number;
@@ -35,28 +37,19 @@ interface CartItem {
   };
 }
 
-interface OrderData {
-  items: Array<{
-    productId: number;
-    quantity: number;
-    unitPrice: number;
-  }>;
-  shippingAddress: {
-    street: string;
-    city: string;
-    state: string;
-    zipCode: string;
-    country: string;
-  };
-  totalAmount: number;
-}
+type PaymentMethod = 'cod' | 'stripe';
 
 export default function CartPage() {
   const router = useRouter();
+  const { user, loading: authLoading, isAuthenticated } = useAuthGuard(['user']);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showCheckout, setShowCheckout] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
+  const [showStripePayment, setShowStripePayment] = useState(false);
+  const [createdOrderId, setCreatedOrderId] = useState<number | null>(null);
+  
   const [shippingAddress, setShippingAddress] = useState({
     fullName: '',
     phone: '',
@@ -76,9 +69,15 @@ export default function CartPage() {
       setLoading(true);
       const response = await cartAPI.getCartItems();
       setCart(response.data || []);
-    } catch (error) {
+      setError(null); // Clear any previous errors
+    } catch (error: any) {
       console.error('Failed to load cart:', error);
-      setError('Failed to load cart items');
+      if (error.response?.status === 401) {
+        setError('Please log in to view your cart');
+        // Don't redirect here, the useAuthGuard will handle it
+      } else {
+        setError('Failed to load cart items. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -151,7 +150,9 @@ export default function CartPage() {
   };
 
   const handleCheckout = async () => {
-    if (!shippingAddress.fullName || !shippingAddress.phone || !shippingAddress.street || !shippingAddress.city || !shippingAddress.state || !shippingAddress.zipCode) {
+    // Validate shipping address
+    if (!shippingAddress.fullName || !shippingAddress.phone || !shippingAddress.street || 
+        !shippingAddress.city || !shippingAddress.state || !shippingAddress.zipCode) {
       setError('Please fill in all shipping address fields');
       return;
     }
@@ -160,7 +161,7 @@ export default function CartPage() {
     setError(null);
 
     try {
-      // Use the createOrderFromCart API with shipping address
+      // Create order with payment method
       const orderData = {
         shippingAddress: {
           fullName: shippingAddress.fullName,
@@ -170,19 +171,26 @@ export default function CartPage() {
           state: shippingAddress.state,
           postalCode: shippingAddress.zipCode,
           country: shippingAddress.country
-        }
+        },
+        paymentMethod: paymentMethod // 'cod' or 'stripe'
       };
 
       const response = await orderAPI.createOrderFromCart(orderData);
       const order = response.data as { id: number };
       
-      // Refresh cart count in navigation
+      // Refresh cart count
       if (typeof window !== 'undefined' && (window as any).refreshCartCount) {
         (window as any).refreshCartCount();
       }
-      
-      // Redirect to order confirmation
-      router.push(`/orders/${order.id}/confirmation`);
+
+      // If COD, redirect to confirmation
+      if (paymentMethod === 'cod') {
+        router.push(`/orders/${order.id}/confirmation`);
+      } else {
+        // If Stripe, show payment form
+        setCreatedOrderId(order.id);
+        setShowStripePayment(true);
+      }
     } catch (err: any) {
       console.error('Order creation failed:', err);
       if (err.response?.status === 401) {
@@ -195,6 +203,61 @@ export default function CartPage() {
       setLoading(false);
     }
   };
+
+  const handleStripeSuccess = () => {
+    // Payment successful, redirect to confirmation
+    if (createdOrderId) {
+      router.push(`/orders/${createdOrderId}/confirmation`);
+    }
+  };
+
+  const handleStripeCancel = () => {
+    // Cancel Stripe payment, return to checkout form
+    setShowStripePayment(false);
+    setCreatedOrderId(null);
+  };
+
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login prompt if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-8">
+          <div className="bg-white rounded-lg shadow-lg p-8">
+            <LogIn className="h-16 w-16 text-blue-600 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Login Required</h2>
+            <p className="text-gray-600 mb-6">
+              Please log in to view your shopping cart and place orders.
+            </p>
+            <button
+              onClick={() => router.push('/login')}
+              className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+            >
+              <LogIn className="h-4 w-4" />
+              Go to Login
+            </button>
+            <button
+              onClick={() => router.push('/products')}
+              className="w-full mt-3 bg-gray-200 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-300 transition-colors"
+            >
+              Continue Browsing Products
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (cart.length === 0) {
     return (
@@ -358,7 +421,7 @@ export default function CartPage() {
                 </div>
               </div>
 
-              {!showCheckout ? (
+              {!showCheckout && !showStripePayment ? (
                 <button
                   onClick={() => setShowCheckout(true)}
                   className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-medium"
@@ -367,14 +430,80 @@ export default function CartPage() {
                   <CreditCard className="h-4 w-4" />
                   Proceed to Checkout
                 </button>
+              ) : showStripePayment && createdOrderId ? (
+                <div className="space-y-4">
+                  <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+                    <p className="text-sm font-medium text-blue-900">Complete Your Payment</p>
+                    <p className="text-xs text-blue-700 mt-1">Order #{createdOrderId} created successfully</p>
+                  </div>
+
+                  <StripeCheckout
+                    orderId={createdOrderId}
+                    amount={getFinalTotal()}
+                    onSuccess={handleStripeSuccess}
+                    onCancel={handleStripeCancel}
+                  />
+                </div>
               ) : (
                 <div className="space-y-4">
-                  <h3 className="font-medium text-gray-900">Shipping Address</h3>
-                  
-                  <div className="space-y-3">
-                    <input
-                      type="text"
-                      placeholder="Full Name"
+                  {/* Payment Method Selection */}
+                  <div>
+                    <h3 className="font-medium text-gray-900 mb-3">Payment Method</h3>
+                    <div className="space-y-2">
+                      <button
+                        onClick={() => setPaymentMethod('cod')}
+                        className={`w-full p-4 border-2 rounded-lg flex items-center gap-3 transition-all ${
+                          paymentMethod === 'cod'
+                            ? 'border-blue-600 bg-blue-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                          paymentMethod === 'cod' ? 'border-blue-600' : 'border-gray-300'
+                        }`}>
+                          {paymentMethod === 'cod' && (
+                            <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
+                          )}
+                        </div>
+                        <Wallet className="h-5 w-5 text-gray-600" />
+                        <div className="flex-1 text-left">
+                          <p className="font-medium text-gray-900">Cash on Delivery</p>
+                          <p className="text-xs text-gray-600">Pay when you receive</p>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={() => setPaymentMethod('stripe')}
+                        className={`w-full p-4 border-2 rounded-lg flex items-center gap-3 transition-all ${
+                          paymentMethod === 'stripe'
+                            ? 'border-blue-600 bg-blue-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                          paymentMethod === 'stripe' ? 'border-blue-600' : 'border-gray-300'
+                        }`}>
+                          {paymentMethod === 'stripe' && (
+                            <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
+                          )}
+                        </div>
+                        <CreditCard className="h-5 w-5 text-gray-600" />
+                        <div className="flex-1 text-left">
+                          <p className="font-medium text-gray-900">Credit/Debit Card</p>
+                          <p className="text-xs text-gray-600">Secured by Stripe</p>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Shipping Address */}
+                  <div>
+                    <h3 className="font-medium text-gray-900 mb-3">Shipping Address</h3>
+                    
+                    <div className="space-y-3">
+                      <input
+                        type="text"
+                        placeholder="Full Name"
                       value={shippingAddress.fullName}
                       onChange={(e) => setShippingAddress({...shippingAddress, fullName: e.target.value})}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -437,6 +566,7 @@ export default function CartPage() {
                       />
                     </div>
                   </div>
+                </div>
 
                   {error && (
                     <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm">
@@ -447,21 +577,37 @@ export default function CartPage() {
                   <div className="space-y-2">
                     <button
                       onClick={handleCheckout}
-                      className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 font-medium"
+                      className={`w-full py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium ${
+                        paymentMethod === 'cod'
+                          ? 'bg-green-600 text-white hover:bg-green-700'
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
                       disabled={loading}
                     >
                       {loading ? (
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                       ) : (
                         <>
-                          <CreditCard className="h-4 w-4" />
-                          Place Order
+                          {paymentMethod === 'cod' ? (
+                            <>
+                              <CheckCircle className="h-4 w-4" />
+                              Place Order (COD)
+                            </>
+                          ) : (
+                            <>
+                              <CreditCard className="h-4 w-4" />
+                              Continue to Payment
+                            </>
+                          )}
                         </>
                       )}
                     </button>
                     
                     <button
-                      onClick={() => setShowCheckout(false)}
+                      onClick={() => {
+                        setShowCheckout(false);
+                        setError(null);
+                      }}
                       className="w-full bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors"
                       disabled={loading}
                     >

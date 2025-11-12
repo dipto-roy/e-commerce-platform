@@ -25,6 +25,13 @@ export default function UserDashboard() {
   useEffect(() => {
     if (user && isAuthorized && !loading) {
       fetchUserStats();
+      
+      // Auto-refresh every 30 seconds for live count
+      const interval = setInterval(() => {
+        fetchUserStats();
+      }, 30000);
+      
+      return () => clearInterval(interval);
     }
   }, [user, isAuthorized, loading]);
 

@@ -158,6 +158,7 @@ export const orderAPI = {
       postalCode: string;
       country: string;
     };
+    paymentMethod?: string; // 'cod' or 'stripe'
     notes?: string;
   }) => api.post('/orders/from-cart', orderData),
   
@@ -173,6 +174,63 @@ export const orderAPI = {
   
   // Get user order statistics
   getUserOrderStats: () => api.get('/orders/stats'),
+  
+  // Create payment intent for Stripe
+  createPaymentIntent: (orderId: number) => api.post(`/orders/${orderId}/create-payment-intent`),
+};
+
+// Payment API functions
+export const paymentAPI = {
+  // Get payment status
+  getPaymentStatus: (orderId: number) => api.get(`/payments/${orderId}/status`),
+  
+  // Download invoice
+  downloadInvoice: (orderId: number) => api.get(`/payments/${orderId}/invoice`, { responseType: 'blob' }),
+  
+  // Request refund (Admin)
+  requestRefund: (orderId: number, data: { amount?: number; reason?: string }) => 
+    api.post(`/payments/${orderId}/refund`, data),
+  
+  // Get all payments (Admin)
+  getAllPayments: (page: number = 1, limit: number = 20, filters?: { status?: string; startDate?: string; endDate?: string }) => {
+    const params = new URLSearchParams();
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    return api.get(`/payments?${params.toString()}`);
+  },
+};
+
+// Financial API functions
+export const financialAPI = {
+  // Platform (Admin only)
+  getPlatformOverview: () => api.get('/financial/platform/overview'),
+  getRevenueAnalytics: (startDate?: string, endDate?: string) => {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    return api.get(`/financial/platform/analytics?${params.toString()}`);
+  },
+  getSellerComparison: (period?: 'month' | 'quarter' | 'year') => 
+    api.get(`/financial/platform/seller-comparison${period ? `?period=${period}` : ''}`),
+  
+  // Seller endpoints
+  getMySummary: () => api.get('/financial/my-summary'),
+  getMyPayouts: (page: number = 1, limit: number = 20) => 
+    api.get(`/financial/my-payouts?page=${page}&limit=${limit}`),
+  
+  // Shared endpoints
+  getSummary: (sellerId?: number) => 
+    api.get(`/financial/summary${sellerId ? `?sellerId=${sellerId}` : ''}`),
+  getPayouts: (sellerId?: number, page: number = 1, limit: number = 20) => {
+    const params = new URLSearchParams();
+    if (sellerId) params.append('sellerId', sellerId.toString());
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
+    return api.get(`/financial/payouts?${params.toString()}`);
+  },
 };
 
 // User Dashboard API functions
