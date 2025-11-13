@@ -57,17 +57,17 @@ Check that your environment variables are correct:
 
 #### **Backend (.env)**
 ```env
-STRIPE_SECRET_KEY=your_stripe_secret_key_here
-STRIPE_WEBHOOK_SECRET=your_webhook_secret_here
+STRIPE_SECRET_KEY=sk_test_your_secret_key_here
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
 ```
 
 #### **Frontend (.env.local)**
 ```env
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key_here
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_xxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 **Important:** 
-- Use test mode keys (starting with `sk_` + `test_` and `pk_` + `test_`)
+- Use `sk_test_` and `pk_test_` for test mode
 - Use `sk_live_` and `pk_live_` for production
 - Never commit live keys to version control
 

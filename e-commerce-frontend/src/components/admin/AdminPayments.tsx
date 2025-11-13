@@ -76,7 +76,7 @@ export default function AdminPayments() {
       
       // Fetch payments from backend
       const response = await paymentAPI.getAllPayments(page, 20, apiFilters);
-      const data = response.data.data;
+      const data = (response.data as any).data;
       
       setPayments(data.payments || []);
       setTotalPages(data.totalPages || 1);
@@ -94,7 +94,7 @@ export default function AdminPayments() {
   const fetchPlatformOverview = async () => {
     try {
       const response = await financialAPI.getPlatformOverview();
-      setPlatformOverview(response.data);
+      setPlatformOverview((response.data as any));
     } catch (error) {
       console.error('Failed to fetch platform overview:', error);
     }
@@ -201,7 +201,7 @@ export default function AdminPayments() {
               <div>
                 <p className="text-sm text-gray-600">Completed Payments</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {platformOverview.completedOrders || 0}
+                  {platformOverview.completedPayments || 0}
                 </p>
               </div>
               <DollarSign className="h-8 w-8 text-green-500" />
@@ -341,7 +341,7 @@ export default function AdminPayments() {
                       <div className="text-sm text-gray-500">{payment.order?.buyer?.email || 'N/A'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                      ${payment.amount.toFixed(2)} {payment.currency}
+                      ${Number(payment.amount || 0).toFixed(2)} {payment.currency}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 uppercase">
                       {payment.order?.paymentMethod || payment.provider}
@@ -396,7 +396,7 @@ export default function AdminPayments() {
                 <input
                   type="number"
                   step="0.01"
-                  placeholder={`Max: $${selectedPayment.amount}`}
+                  placeholder={`Max: $${Number(selectedPayment.amount || 0).toFixed(2)}`}
                   value={refundAmount}
                   onChange={(e) => setRefundAmount(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"

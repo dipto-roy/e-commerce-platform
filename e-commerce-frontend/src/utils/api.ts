@@ -25,25 +25,49 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor to log responses and handle errors
+// Track if we're currently refreshing to avoid multiple simultaneous refresh calls
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (value?: any) => void;
+  reject: (error?: any) => void;
+}> = [];
+
+const processQueue = (error: any = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve();
+    }
+  });
+  
+  failedQueue = [];
+};
+
+// Response interceptor with automatic token refresh
 api.interceptors.response.use(
   (response) => {
     console.log(`✅ API Response: ${response.status} ${response.config.url}`);
     return response;
   },
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config;
+    
     console.error('❌ API Response Error:', error.response?.status, error.response?.data);
     console.error('❌ Request URL:', error.config?.url);
+    
     if (error.config?.headers && Object.keys(error.config.headers).length === 0) {
       console.warn('⚠️ Request headers are empty. This is normal for cookie-based authentication. Cookies are sent automatically.');
     } else {
       console.error('❌ Request Headers:', error.config?.headers);
     }
+    
     if (error.response?.status === 400) {
       console.error('🚨 400 Bad Request - likely validation error. Check backend DTOs and request payload.');
       console.error('- Request Data:', error.config?.data);
       console.error('- Response Data:', error.response?.data);
     }
+    
     // Log detailed 403 error information
     if (error.response?.status === 403) {
       console.error('🚨 403 Forbidden Error Details:');
@@ -52,10 +76,85 @@ api.interceptors.response.use(
       console.error('- Response Data:', error.response?.data);
       console.error('- Response Headers:', error.response?.headers);
     }
-    // Handle authentication errors
-    if (error.response?.status === 401) {
-      console.log('🔐 Authentication required - redirecting to login');
-      // Don't redirect here - let components handle it
+    
+    // Handle 401 errors with automatic token refresh
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      // Don't retry refresh or logout endpoints
+      if (originalRequest.url?.includes('/auth/refresh') || 
+          originalRequest.url?.includes('/auth/logout') ||
+          originalRequest.url?.includes('/auth/login')) {
+        console.log('🔐 Auth endpoint failed - not retrying');
+        
+        // Dispatch token expired event
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('token-expired'));
+        }
+        
+        return Promise.reject(error);
+      }
+
+      if (isRefreshing) {
+        // If already refreshing, queue this request
+        console.log('⏳ Token refresh in progress, queuing request...');
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then(() => {
+            console.log('✅ Retrying queued request after token refresh');
+            return api(originalRequest);
+          })
+          .catch((err) => {
+            return Promise.reject(err);
+          });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        console.log('🔄 Access token expired, attempting to refresh...');
+        
+        // Dispatch token refreshing event
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('token-refreshing'));
+        }
+        
+        // Call refresh endpoint
+        await api.post('/auth/refresh');
+        
+        console.log('✅ Token refresh successful, retrying original request');
+        
+        // Dispatch token refreshed event
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('token-refreshed'));
+        }
+        
+        processQueue(null);
+        
+        // Retry the original request
+        return api(originalRequest);
+      } catch (refreshError: any) {
+        console.error('❌ Token refresh failed:', refreshError.response?.status);
+        
+        // Dispatch token expired event
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('token-expired'));
+        }
+        
+        processQueue(refreshError);
+        
+        // Only redirect to login if we're in browser and not already on login page
+        if (typeof window !== 'undefined' && 
+            !window.location.pathname.includes('/login') &&
+            !window.location.pathname.includes('/signup')) {
+          console.log('🔐 Redirecting to login...');
+          window.location.href = '/login?expired=true';
+        }
+        
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
     }
     
     return Promise.reject(error);
@@ -206,7 +305,8 @@ export const paymentAPI = {
 // Financial API functions
 export const financialAPI = {
   // Platform (Admin only)
-  getPlatformOverview: () => api.get('/financial/platform/overview'),
+  getPlatformOverview: () => api.get('/financial/platform/simple-overview'),
+  getFullPlatformOverview: () => api.get('/financial/platform/overview'),
   getRevenueAnalytics: (startDate?: string, endDate?: string) => {
     const params = new URLSearchParams();
     if (startDate) params.append('startDate', startDate);

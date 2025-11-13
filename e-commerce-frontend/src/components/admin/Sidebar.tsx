@@ -30,6 +30,11 @@ const sidebarLinks = [
     icon: '📋'
   },
   {
+    href: '/dashboard/admin/reports',
+    label: 'Reports',
+    icon: '📈'
+  },
+  {
     href: '/dashboard/admin/emails',
     label: 'Email System',
     icon: '📧'

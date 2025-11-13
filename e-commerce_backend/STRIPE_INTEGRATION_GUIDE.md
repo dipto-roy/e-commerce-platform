@@ -52,11 +52,11 @@ npm run migration:show
 ```
 
 ### Step 2: Update Environment Variables
-Your `.env` file needs Stripe keys from your Stripe Dashboard:
+Your `.env` file already has Stripe keys. Verify:
 ```bash
 # Backend .env
-STRIPE_SECRET_KEY=your_stripe_secret_key_here
-STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key_here
+STRIPE_SECRET_KEY=sk_test_your_secret_key_here
+STRIPE_PUBLISHABLE_KEY=pk_test_your_publishable_key_here
 STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
 STRIPE_CURRENCY=usd
 APP_URL=http://localhost:4002

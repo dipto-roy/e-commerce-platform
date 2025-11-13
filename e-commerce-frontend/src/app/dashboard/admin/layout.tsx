@@ -5,6 +5,9 @@ import Sidebar from '@/components/admin/Sidebar';
 import Header from '@/components/admin/Header';
 import { ToastProvider } from '@/contexts/ToastContext';
 
+// Force dynamic rendering for all admin pages
+export const dynamic = 'force-dynamic';
+
 interface AdminLayoutProps {
   children: React.ReactNode;
 }

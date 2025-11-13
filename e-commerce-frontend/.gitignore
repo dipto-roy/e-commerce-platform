@@ -48,6 +48,22 @@ coverage/
 *.tsbuildinfo
 next-env.d.ts
 
-# Test files (optional)
+# Test files
 test-*.sh
 *-test.sh
+quick-*.sh
+*_test.js
+*_test.ts
+
+# Documentation files
+*.md
+!README.md
+COMPLETE_*.md
+ADMIN_*.md
+NOTIFICATION_*.md
+ORDERS_*.md
+*_GUIDE.md
+*_DOCUMENTATION.md
+*_FIX*.md
+*_REPORT.md
+*_VERIFICATION.md

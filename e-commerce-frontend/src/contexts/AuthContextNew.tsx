@@ -93,38 +93,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error: any) {
       console.log('🔍 Auth check failed:', error.response?.status, error.message);
       
+      // Don't try to refresh here - let the interceptor handle it
+      // This prevents double refresh attempts
       if (error.response?.status === 401) {
-        // Try to refresh tokens
-        try {
-          console.log('🔄 Attempting token refresh...');
-          await apiClient.post('/auth/refresh');
-          console.log('✅ Token refresh successful, retrying profile...');
-          
-          // Retry getting profile after refresh
-          const response = await apiClient.get<AuthResponse>('/auth/profile');
-          const userData = response.data?.user;
-          
-          if (userData) {
-            console.log('✅ User authenticated after refresh:', userData.role, userData.email);
-            setUser(userData);
-            setAuthInitialized(true);
-            return true;
-          }
-        } catch (refreshError) {
-          console.log('❌ Token refresh failed:', refreshError);
-          setUser(null);
-          setAuthInitialized(true);
-        }
-      } else {
-        setUser(null);
-        setAuthInitialized(true);
+        console.log('⚠️ Unauthorized - user needs to login');
       }
       
+      setUser(null);
+      setAuthInitialized(true);
       return false;
     } finally {
       setIsRefreshing(false);
     }
-  }, []); // Remove isRefreshing dependency to prevent unnecessary re-creation
+  }, [isRefreshing]);
 
   // Setup axios interceptors with improved handling
   useEffect(() => {
@@ -136,6 +117,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       (error) => Promise.reject(error)
     );
 
+    // Track if we're currently refreshing to avoid multiple simultaneous refresh calls
+    let isRefreshingToken = false;
+    let refreshSubscribers: Array<(token?: string) => void> = [];
+
+    const subscribeTokenRefresh = (cb: (token?: string) => void) => {
+      refreshSubscribers.push(cb);
+    };
+
+    const onRefreshed = () => {
+      refreshSubscribers.forEach((cb) => cb());
+      refreshSubscribers = [];
+    };
+
     const responseInterceptor = apiClient.interceptors.response.use(
       (response) => {
         console.log('✅ API Response:', response.status, response.config.url);
@@ -143,17 +137,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       async (error) => {
         const originalRequest = error.config;
-        console.log('❌ API Error:', error.response?.status, originalRequest.url);
+        console.log('❌ API Error:', error.response?.status, originalRequest?.url);
 
-        if (error.response?.status === 401 && authInitialized) {
-          console.log('❌ Authentication failed, logging out...');
-          // Clear user state on 401 (no auto-refresh since backend doesn't support it)
-          setUser(null);
-          // Only redirect if we're not already on login page and window is available
-          if (typeof window !== 'undefined' && 
-              !window.location.pathname.includes('/login') && 
-              !window.location.pathname.includes('/Singup')) {
-            router.push('/login?expired=true');
+        // Handle 401 errors with automatic token refresh
+        if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+          // Don't retry for auth endpoints
+          if (originalRequest.url?.includes('/auth/login') || 
+              originalRequest.url?.includes('/auth/register') ||
+              originalRequest.url?.includes('/auth/logout')) {
+            return Promise.reject(error);
+          }
+
+          // If we're already refreshing, queue this request
+          if (isRefreshingToken) {
+            return new Promise((resolve) => {
+              subscribeTokenRefresh(() => {
+                resolve(apiClient(originalRequest));
+              });
+            });
+          }
+
+          originalRequest._retry = true;
+          isRefreshingToken = true;
+
+          try {
+            console.log('🔄 Token expired, attempting automatic refresh...');
+            await apiClient.post('/auth/refresh');
+            console.log('✅ Token refreshed successfully');
+            
+            isRefreshingToken = false;
+            onRefreshed();
+            
+            // Retry the original request
+            return apiClient(originalRequest);
+          } catch (refreshError: any) {
+            console.error('❌ Token refresh failed:', refreshError.response?.status);
+            isRefreshingToken = false;
+            
+            // Clear user state and redirect to login
+            setUser(null);
+            setAuthInitialized(false);
+            
+            if (typeof window !== 'undefined' && 
+                !window.location.pathname.includes('/login') && 
+                !window.location.pathname.includes('/signup')) {
+              console.log('🔐 Redirecting to login due to refresh failure...');
+              router.push('/login?expired=true');
+            }
+            
+            return Promise.reject(refreshError);
           }
         }
 
@@ -165,7 +197,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       apiClient.interceptors.request.eject(requestInterceptor);
       apiClient.interceptors.response.eject(responseInterceptor);
     };
-  }, [router, authInitialized]);
+  }, [router]);
 
   // Initial auth check with persistence fix
   useEffect(() => {

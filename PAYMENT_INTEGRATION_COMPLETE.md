@@ -345,10 +345,10 @@ curl -X POST http://localhost:4002/api/v1/orders/ORDER_ID/create-payment-intent 
 
 ### **Test Mode Keys**
 - **Publishable Key** (Frontend):  
-  `your_stripe_publishable_key_here` (get from Stripe Dashboard → Developers → API Keys)
+  `pk_test_your_publishable_key_here`
 
 - **Secret Key** (Backend - in .env):  
-  `your_stripe_secret_key_here` (get from Stripe Dashboard → Developers → API Keys)
+  `sk_test_your_secret_key_here`
 
 ### **Test Cards**
 | Card Number | Description | Result |

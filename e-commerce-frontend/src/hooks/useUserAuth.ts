@@ -1,5 +1,5 @@
 'use client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContextNew';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useSessionExpiration } from './useSessionExpiration';

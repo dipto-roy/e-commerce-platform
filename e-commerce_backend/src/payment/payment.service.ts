@@ -368,18 +368,8 @@ export class PaymentService {
 
     const query = this.paymentRepository
       .createQueryBuilder('payment')
-      .leftJoinAndSelect('payment.order', 'order')
-      .leftJoinAndSelect('order.buyer', 'buyer')
-      .select([
-        'payment',
-        'order.id',
-        'order.orderNumber',
-        'order.totalAmount',
-        'order.paymentMethod',
-        'buyer.id',
-        'buyer.username',
-        'buyer.email',
-      ]);
+      .leftJoinAndSelect('payment.order', 'orderEntity')
+      .leftJoinAndSelect('orderEntity.buyer', 'buyer');
 
     // Filter by status
     if (filters.status) {
@@ -397,7 +387,7 @@ export class PaymentService {
     // Search by order number or buyer email
     if (filters.search) {
       query.andWhere(
-        '(order.orderNumber ILIKE :search OR buyer.email ILIKE :search OR buyer.username ILIKE :search)',
+        '(orderEntity.orderNumber ILIKE :search OR buyer.email ILIKE :search OR buyer.username ILIKE :search)',
         { search: `%${filters.search}%` },
       );
     }

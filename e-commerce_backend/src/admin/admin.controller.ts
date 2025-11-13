@@ -12,9 +12,12 @@ import {
   UsePipes,
   ValidationPipe,
   Req,
+  Res,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { AdminService } from './admin.service';
 import { OrderService } from '../order/order.service';
+import { ReportService } from './report.service';
 import { UpdateOrderStatusDto } from '../order/dto/update-order.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles/roles.guard';
@@ -30,6 +33,11 @@ import {
   DashboardTrendsResponseDto,
   TrendPeriod,
 } from './dto/dashboard-trends.dto';
+import {
+  GenerateReportDto,
+  ReportType,
+  ReportFormat,
+} from './dto/generate-report.dto';
 import {
   ApiTags,
   ApiOperation,
@@ -47,6 +55,7 @@ export class AdminController {
   constructor(
     private readonly adminService: AdminService,
     private readonly orderService: OrderService,
+    private readonly reportService: ReportService,
   ) {}
 
   @Get()
@@ -202,6 +211,97 @@ export class AdminController {
     return {
       success: true,
       ...trends,
+    };
+  }
+
+  // Report generation endpoints
+  @Get('reports/generate')
+  @ApiOperation({
+    summary: 'Generate and download report',
+    description: 'Generates a report based on type and format, returns downloadable file',
+  })
+  @ApiQuery({
+    name: 'type',
+    enum: ReportType,
+    required: true,
+    description: 'Type of report to generate',
+    example: 'sales',
+  })
+  @ApiQuery({
+    name: 'format',
+    enum: ReportFormat,
+    required: false,
+    description: 'Export format (pdf, excel, csv)',
+    example: 'pdf',
+  })
+  @ApiQuery({
+    name: 'startDate',
+    required: false,
+    description: 'Start date for filtering (ISO format)',
+    example: '2025-01-01',
+  })
+  @ApiQuery({
+    name: 'endDate',
+    required: false,
+    description: 'End date for filtering (ISO format)',
+    example: '2025-12-31',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Report generated successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad Request - Invalid parameters',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing token',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin access required',
+  })
+  @UsePipes(ValidationPipe)
+  async generateReport(
+    @Query() dto: GenerateReportDto,
+    @Res() res: Response,
+  ) {
+    const buffer = await this.reportService.generateReport(dto);
+    const timestamp = new Date().getTime();
+    const format = dto.format || ReportFormat.PDF;
+    const filename = `${dto.type}-report-${timestamp}.${format}`;
+
+    // Set appropriate content type
+    const contentTypes = {
+      [ReportFormat.PDF]: 'application/pdf',
+      [ReportFormat.EXCEL]: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      [ReportFormat.CSV]: 'text/csv',
+    };
+
+    res.set({
+      'Content-Type': contentTypes[format],
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': buffer.length,
+    });
+
+    res.send(buffer);
+  }
+
+  @Get('reports/types')
+  @ApiOperation({
+    summary: 'Get available report types and formats',
+    description: 'Returns list of available report types and export formats',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Report types retrieved successfully',
+  })
+  getReportTypes() {
+    return {
+      success: true,
+      types: Object.values(ReportType),
+      formats: Object.values(ReportFormat),
     };
   }
 }

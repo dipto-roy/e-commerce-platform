@@ -1,9 +1,12 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { adminAPI } from '@/lib/adminAPI';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContextNew';
+
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
 
 interface Notification {
   id: number;
@@ -19,7 +22,7 @@ interface Notification {
   };
 }
 
-export default function NotificationsPage() {
+function NotificationsContent() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -618,5 +621,17 @@ export default function NotificationsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function NotificationsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    }>
+      <NotificationsContent />
+    </Suspense>
   );
 }

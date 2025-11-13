@@ -36,6 +36,13 @@ export class FinancialController {
     return this.financialService.getPlatformFinancialOverview();
   }
 
+  // Get simple platform overview for dashboard (Admin only)
+  @Get('platform/simple-overview')
+  @Roles(Role.ADMIN)
+  async getSimplePlatformOverview() {
+    return this.financialService.getSimplePlatformOverview();
+  }
+
   // Get revenue analytics (Admin only)
   @Get('platform/analytics')
   @Roles(Role.ADMIN)
