@@ -58,6 +58,16 @@ export class Payment {
     processingFee?: number;
   };
 
+  // Stripe-specific fields
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  stripePaymentIntentId?: string;
+
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  stripeClientSecret?: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  stripeChargeId?: string;
+
   // Important timestamps
   @CreateDateColumn()
   createdAt: Date;
@@ -70,6 +80,9 @@ export class Payment {
 
   @Column({ type: 'timestamp', nullable: true })
   failedAt?: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+  paidAt?: Date;
 
   // Relations
   @OneToOne(() => Order, (order) => order.payment, {

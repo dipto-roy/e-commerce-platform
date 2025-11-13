@@ -52,10 +52,14 @@ async function bootstrap() {
   const corsOrigins = process.env.CORS_ORIGIN
     ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim())
     : [
-        'http://localhost:3000', // Next.js frontend (current)
+        'http://localhost:3000', // Next.js frontend (localhost)
+        'http://127.0.0.1:3000', // Next.js frontend (127.0.0.1)
         'http://localhost:4050', // Alternative frontend port
+        'http://127.0.0.1:4050', // Alternative frontend port (127.0.0.1)
         'http://localhost:4051', // Alternative frontend port
+        'http://127.0.0.1:4051', // Alternative frontend port (127.0.0.1)
         'http://localhost:7000', // Previous frontend port
+        'http://127.0.0.1:7000', // Previous frontend port (127.0.0.1)
       ];
 
   console.log('🔒 CORS Origins:', corsOrigins);

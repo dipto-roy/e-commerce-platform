@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSellerGuard } from '@/hooks/useAuthGuard';
+import { financialAPI } from '@/utils/api';
 
 interface DashboardAnalytics {
   totalProducts: number;
@@ -61,42 +62,71 @@ export default function SellerAnalytics() {
   useEffect(() => {
     if (user && isAuthorized) {
       fetchAnalytics();
+      
+      // Auto-refresh analytics every 30 seconds for real-time updates
+      const interval = setInterval(() => {
+        fetchAnalytics();
+      }, 30000);
+      
+      return () => clearInterval(interval);
     }
   }, [user, isAuthorized, selectedPeriod]);
 
   const fetchAnalytics = async () => {
     setLoadingData(true);
+    setError(null);
     try {
-      const token = localStorage.getItem('token');
+      // Fetch financial summary from the financial API
+      const summaryResponse = await financialAPI.getMySummary();
       
-      // Fetch dashboard analytics
-      const dashboardResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/sellers/dashboard/analytics?period=${selectedPeriod}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+      if (summaryResponse.data) {
+        const financialData = summaryResponse.data as any; // Type assertion for API response
+        
+        // Map financial API data to analytics structure
+        setAnalytics({
+          totalProducts: financialData.totalProducts || 0,
+          activeProducts: financialData.activeProducts || 0,
+          totalOrders: financialData.totalOrders || 0,
+          totalRevenue: financialData.totalRevenue || 0,
+          pendingOrders: financialData.pendingOrders || 0,
+          completedOrders: financialData.completedOrders || 0,
+          averageOrderValue: financialData.averageOrderValue || 0,
+          conversionRate: financialData.conversionRate || 0,
+          topSellingProducts: financialData.topSellingProducts || [],
+          monthlyStats: financialData.monthlyStats || [],
+          recentActivity: financialData.recentActivity || []
+        });
+        
+        // Set product analytics if available
+        if (financialData.productAnalytics) {
+          setProductAnalytics({
+            productViews: financialData.productAnalytics.productViews || 0,
+            totalSales: financialData.productAnalytics.totalSales || 0,
+            averageRating: financialData.productAnalytics.averageRating || 0,
+            stockLevel: financialData.productAnalytics.stockLevel || 'Unknown',
+            performanceScore: financialData.productAnalytics.performanceScore || 0
+          });
         }
-      });
-
-      if (dashboardResponse.ok) {
-        const dashboardData = await dashboardResponse.json();
-        setAnalytics(dashboardData);
-      }
-
-      // Fetch product analytics summary
-      const productResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/seller/analytics`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (productResponse.ok) {
-        const productData = await productResponse.json();
-        setProductAnalytics(productData);
       }
 
     } catch (err) {
+      console.error('Failed to fetch analytics:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch analytics data');
+      
+      // Set empty data on error
+      setAnalytics({
+        totalProducts: 0,
+        activeProducts: 0,
+        totalOrders: 0,
+        totalRevenue: 0,
+        pendingOrders: 0,
+        completedOrders: 0,
+        averageOrderValue: 0,
+        conversionRate: 0,
+        topSellingProducts: [],
+        monthlyStats: [],
+        recentActivity: []
+      });
     } finally {
       setLoadingData(false);
     }

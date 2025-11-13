@@ -3,7 +3,8 @@ import React from 'react';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import LogoutButton from '@/components/LogoutButton';
 
-
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
 
 export default function SellerDashboardPage() {
   const { user, loading } = useAdminAuth();

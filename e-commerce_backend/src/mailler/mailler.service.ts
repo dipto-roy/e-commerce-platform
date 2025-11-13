@@ -583,4 +583,51 @@ export class MaillerService {
 
     return await this.sendEmail(email, subject, text, html);
   }
+
+  // Generic email sending method (used by payment service)
+  async sendMail(to: string, subject: string, html: string) {
+    return await this.sendEmail(to, subject, '', html);
+  }
+
+  // Email with attachment (for invoices)
+  async sendMailWithAttachment(
+    to: string,
+    subject: string,
+    html: string,
+    attachmentPath: string,
+    attachmentName: string,
+  ) {
+    try {
+      console.log(`Sending email with attachment to: ${to}`);
+
+      const result = await this.mailerService.sendMail({
+        to: to,
+        subject: subject,
+        html: html,
+        attachments: [
+          {
+            filename: attachmentName,
+            path: attachmentPath,
+          },
+        ],
+      });
+
+      console.log('Email with attachment sent successfully:', result);
+      return { success: true, message: 'Email sent successfully' };
+    } catch (error) {
+      console.error('Email sending failed:', error.message);
+
+      // Don't throw in development
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Email sending disabled in development');
+        return {
+          success: false,
+          message: 'Email disabled in development',
+          error: error.message,
+        };
+      }
+
+      throw new Error(`Failed to send email: ${error.message}`);
+    }
+  }
 }

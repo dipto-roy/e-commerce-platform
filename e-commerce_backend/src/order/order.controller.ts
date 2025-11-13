@@ -132,4 +132,14 @@ export class OrderController {
   ) {
     return this.orderService.cancelOrder(id, req.user);
   }
+
+  @Post(':id/create-payment-intent')
+  @ApiOperation({ summary: 'Create Stripe payment intent for order' })
+  @ApiResponse({ status: 200, description: 'Payment intent created' })
+  async createPaymentIntent(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: any,
+  ) {
+    return this.orderService.createPaymentIntent(id, req.user.id);
+  }
 }

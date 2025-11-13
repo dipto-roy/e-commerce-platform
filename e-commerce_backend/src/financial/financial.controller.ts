@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   Put,
   Body,
   Param,
@@ -33,6 +34,13 @@ export class FinancialController {
   @Roles(Role.ADMIN)
   async getPlatformFinancialOverview() {
     return this.financialService.getPlatformFinancialOverview();
+  }
+
+  // Get simple platform overview for dashboard (Admin only)
+  @Get('platform/simple-overview')
+  @Roles(Role.ADMIN)
+  async getSimplePlatformOverview() {
+    return this.financialService.getSimplePlatformOverview();
   }
 
   // Get revenue analytics (Admin only)

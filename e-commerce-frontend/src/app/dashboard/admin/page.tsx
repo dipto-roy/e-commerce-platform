@@ -8,6 +8,7 @@ import StatsOverviewChart from '@/components/admin/StatsOverviewChart';
 import UserDistributionChart from '@/components/admin/UserDistributionChart';
 import StatsLineChart from '@/components/admin/StatsLineChart';
 import SellerStatusChart from '@/components/admin/SellerStatusChart';
+import AdminPayments from '@/components/admin/AdminPayments';
 
 interface DashboardStats {
   totalUsers: number;
@@ -222,6 +223,9 @@ export default function AdminDashboard() {
           </div>
         </>
       )}
+
+      {/* Payment Management Section */}
+      <AdminPayments />
 
       {/* Quick Actions */}
       <div className="bg-white rounded-lg shadow p-6">

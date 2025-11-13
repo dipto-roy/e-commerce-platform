@@ -25,6 +25,7 @@ import {
 import { Role } from '../users/entities/role.enum';
 import { NotificationService } from '../notification/notification.service';
 import { MaillerService } from '../mailler/mailler.service';
+import { StripeService } from '../payment/services/stripe.service';
 
 @Injectable()
 export class OrderService {
@@ -56,6 +57,9 @@ export class OrderService {
     private notificationService: NotificationService,
 
     private maillerService: MaillerService,
+
+    @Inject(forwardRef(() => StripeService))
+    private stripeService: StripeService,
   ) {}
 
   async createOrder(
@@ -260,11 +264,16 @@ export class OrderService {
         await queryRunner.manager.save(Product, product);
       }
 
+      // Determine payment method (default to COD)
+      const paymentMethod = createOrderFromCartDto.paymentMethod || 'cod';
+
       // Create order
       const order = queryRunner.manager.create(Order, {
         userId,
         totalAmount,
         status: OrderStatus.PENDING,
+        paymentMethod: paymentMethod,
+        paymentStatus: PaymentStatus.PENDING,
         shippingAddress: createOrderFromCartDto.shippingAddress,
         notes: createOrderFromCartDto.notes,
       });
@@ -303,15 +312,19 @@ export class OrderService {
         await queryRunner.manager.save(FinancialRecord, financialRecord);
       }
 
-      // Create payment record (COD for now since no payment system)
+      // Create payment record
       const payment = queryRunner.manager.create(Payment, {
         orderId: savedOrder.id,
-        provider: 'cod', // Cash on Delivery as default
+        provider: paymentMethod === 'stripe' ? 'stripe' : 'cod',
         amount: totalAmount,
         status: PaymentStatus.PENDING,
         paymentMethod: {
-          type: 'cod',
-          details: { note: 'Cart order - Cash on Delivery' },
+          type: paymentMethod,
+          details: { 
+            note: paymentMethod === 'stripe' 
+              ? 'Cart order - Card Payment via Stripe' 
+              : 'Cart order - Cash on Delivery' 
+          },
         },
       });
 
@@ -541,6 +554,49 @@ export class OrderService {
     await this.cancelFinancialRecords(order.id);
 
     return this.orderRepository.save(order);
+  }
+
+  async createPaymentIntent(orderId: number, userId: number) {
+    // 1. Find order with payment
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId, userId },
+      relations: ['payment'],
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    // 2. Validate order is for Stripe payment
+    if (order.paymentMethod !== 'stripe') {
+      throw new BadRequestException(
+        'Order is not set up for Stripe payment',
+      );
+    }
+
+    // 3. Check if payment intent already exists
+    if (order.payment?.stripePaymentIntentId) {
+      return { clientSecret: order.payment.stripeClientSecret };
+    }
+
+    // 4. Create Stripe payment intent
+    // Pass amount in dollars - StripeService will convert to cents
+    const paymentIntent = await this.stripeService.createPaymentIntent(
+      order.totalAmount,
+      'usd',
+      {
+        orderId: order.id.toString(),
+        userId: order.userId.toString(),
+      },
+    );
+
+    // 5. Update payment record
+    order.payment.stripePaymentIntentId = paymentIntent.id;
+    order.payment.stripeClientSecret = paymentIntent.client_secret;
+    await this.paymentRepository.save(order.payment);
+
+    // 6. Return client secret
+    return { clientSecret: paymentIntent.client_secret };
   }
 
   async getSellerFinancials(sellerId: number): Promise<any> {
@@ -937,16 +993,23 @@ export class OrderService {
     ).length;
 
     // Calculate total spent (for users) or total revenue (for sellers)
+    // Only count COMPLETED payments
     let totalAmount = 0;
     if (user.role === Role.USER) {
-      // For users, sum the total amount of their orders
-      totalAmount = allOrders.reduce((sum, order) => {
+      // For users, sum the total amount of PAID orders only
+      const paidOrders = allOrders.filter(
+        (order) => order.paymentStatus === PaymentStatus.COMPLETED,
+      );
+      totalAmount = paidOrders.reduce((sum, order) => {
         const orderTotal = parseFloat(order.totalAmount?.toString() || '0');
         return sum + orderTotal;
       }, 0);
     } else if (user.role === Role.SELLER) {
-      // For sellers, sum only their order items
-      totalAmount = allOrders.reduce((sum, order) => {
+      // For sellers, sum only their order items from PAID orders
+      const paidOrders = allOrders.filter(
+        (order) => order.paymentStatus === PaymentStatus.COMPLETED,
+      );
+      totalAmount = paidOrders.reduce((sum, order) => {
         const sellerItems = order.orderItems.filter(
           (item) => item.sellerId === user.id,
         );

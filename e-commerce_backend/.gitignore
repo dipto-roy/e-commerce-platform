@@ -49,10 +49,27 @@ uploads/
 image/
 public/uploads/
 
-# Test files (optional - remove if you want to keep)
+# Test files
 test-*.sh
 *-test.sh
 quick-*.sh
+*_test.js
+*_test.ts
+demo-*.sh
 
-# Documentation (optional - keep if public)
-# *.md
+# Documentation files
+*.md
+!README.md
+COMPLETE_*.md
+ADMIN_*.md
+AUTH_*.md
+NOTIFICATION_*.md
+PAYMENT_*.md
+API_*.md
+*_GUIDE.md
+*_DOCUMENTATION.md
+*_FIX*.md
+*_REPORT.md
+*_SUMMARY.md
+*_STATUS.md
+*_SUCCESS.md

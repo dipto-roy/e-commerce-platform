@@ -12,7 +12,7 @@ import {
 import { User } from '../../users/entities/unified-user.entity';
 import { OrderItem } from './order-item.entity';
 import { Payment } from './payment.entity';
-import { OrderStatus } from './order.enums';
+import { OrderStatus, PaymentStatus } from './order.enums';
 
 @Entity('orders')
 export class Order {
@@ -29,6 +29,16 @@ export class Order {
     default: OrderStatus.PENDING,
   })
   status: OrderStatus;
+
+  @Column({ type: 'varchar', length: 20, default: 'cod' })
+  paymentMethod: string;
+
+  @Column({
+    type: 'enum',
+    enum: PaymentStatus,
+    default: PaymentStatus.PENDING,
+  })
+  paymentStatus: PaymentStatus;
 
   @Column('decimal', { precision: 12, scale: 2 })
   totalAmount: number;
@@ -59,6 +69,16 @@ export class Order {
   // Order metadata as JSON
   @Column({ type: 'jsonb', nullable: true })
   metadata?: Record<string, any>;
+
+  // Invoice information
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  invoiceUrl?: string;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  invoiceNumber?: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  invoiceGeneratedAt?: Date;
 
   @CreateDateColumn()
   placedAt: Date;

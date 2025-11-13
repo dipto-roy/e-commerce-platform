@@ -15,6 +15,7 @@ import { OrderModule } from './order/order.module';
 import { FinancialModule } from './financial/financial.module';
 import { NotificationModule } from './notification/notification.module';
 import { CartModule } from './cart/cart.module';
+import { PaymentModule } from './payment/payment.module';
 import { MaillerService } from './mailler/mailler.service';
 import { MaillerController } from './mailler/mailler.controller';
 import { Product } from './product/entities/product.entity';
@@ -76,6 +77,7 @@ import { Notification } from './notification/entities/notification.entity';
     FinancialModule,
     NotificationModule,
     CartModule,
+    PaymentModule,
   ],
   controllers: [MaillerController],
   providers: [MaillerService],

@@ -66,19 +66,12 @@ export default function Home() {
       const response = await generalAPI.getPaginatedProducts(page, 12);
       const data = response.data as PaginationData;
       
-      // Filter products to only show those with images
-      const productsWithImages = data.products.filter(product => 
-        product.images && product.images.length > 0
-      );
+      console.log(`📊 Products fetched: ${data.products.length}, page: ${page}`);
       
-      console.log(`📊 Products fetched: ${data.products.length}, with images: ${productsWithImages.length}`);
-      
-      setProducts(productsWithImages);
-      setPagination({
-        ...data,
-        products: productsWithImages,
-        totalCount: productsWithImages.length
-      });
+      // Don't filter here - backend should return only valid products
+      // If a product has no images, it's a data issue that should be fixed in backend
+      setProducts(data.products);
+      setPagination(data);
       setCurrentPage(page);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch products');
@@ -124,10 +117,18 @@ export default function Home() {
     }
   };
 
-  // Load products on component mount
+  // Load products on component mount and set up auto-refresh
   useEffect(() => {
     fetchProducts(1);
-  }, []);
+    
+    // Auto-refresh every 30 seconds to catch product deletions/updates
+    const refreshInterval = setInterval(() => {
+      console.log('🔄 Auto-refreshing product list...');
+      fetchProducts(currentPage);
+    }, 30000); // 30 seconds
+    
+    return () => clearInterval(refreshInterval);
+  }, [currentPage]);
 
   // Pagination handlers
   const handlePrevPage = () => {
@@ -209,7 +210,17 @@ export default function Home() {
       </div>
       
       <div className="text-center mb-12">
-        <h2 className="text-4xl font-bold text-white mb-4">Featured Products</h2>
+        <div className="flex items-center justify-center gap-4 mb-4">
+          <h2 className="text-4xl font-bold text-white">Featured Products</h2>
+          <button
+            onClick={() => fetchProducts(currentPage)}
+            disabled={loading}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            title="Refresh product list"
+          >
+            {loading ? '🔄 Refreshing...' : '🔄 Refresh'}
+          </button>
+        </div>
         <p className="text-gray-400">Explore our top picks just for you</p>
         {pagination && (
           <p className="text-gray-500 mt-2">
