@@ -1,9 +1,22 @@
 {
-    "chat.mcp.discovery.enabled": {
-        "claude-desktop": true,
-        "windsurf": true,
-        "cursor-global": true,
-        "cursor-workspace": true
-    },
-    "github.copilot.chat.agent.thinkingTool": true
+  "chat.mcp.discovery.enabled": {
+    "claude-desktop": true,
+    "windsurf": true,
+    "cursor-global": true,
+    "cursor-workspace": true
+  },
+  "github.copilot.chat.agent.thinkingTool": true,
+  "github.copilot.chat.azureModels": {},
+  "github.copilot.nextEditSuggestions.enabled": true,
+  "github.copilot.enable": {
+    "markdown": true
+  },
+  "inlineChat.enableV2": true,
+  "chat.useNestedAgentsMdFiles": true,
+  "chat.checkpoints.showFileChanges": true,
+  "chat.customAgentInSubagent.enabled": true,
+  "chat.edits2.enabled": true,
+  "chat.emptyState.history.enabled": true,
+  "chat.mcp.gallery.enabled": true,
+  "chat.renderRelatedFiles": true
 }

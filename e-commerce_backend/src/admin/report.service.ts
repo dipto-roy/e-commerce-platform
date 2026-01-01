@@ -500,7 +500,8 @@ export class ReportService {
         'No data available for the selected period.';
     }
 
-    return (await workbook.xlsx.writeBuffer()) as Buffer;
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
   }
 
   // ==================== CSV GENERATION ====================

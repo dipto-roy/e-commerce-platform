@@ -32,6 +32,11 @@ import { Payment } from './order/entities/payment.entity';
 import { FinancialRecord } from './order/entities/financial-record.entity';
 import { Cart } from './cart/entities/cart.entity';
 import { Notification } from './notification/entities/notification.entity';
+import { MonitoringModule } from './monitoring/monitoring.module';
+import { CustomTypeOrmLogger } from './monitoring/typeorm-logger';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { QueryTimingInterceptor } from './monitoring/query-timing.interceptor';
+import { QuerySubscriber } from './monitoring/query.subscriber';
 
 @Module({
   imports: [
@@ -64,6 +69,9 @@ import { Notification } from './notification/entities/notification.entity';
       ],
       synchronize: false,
       logging: true,
+      logger: new CustomTypeOrmLogger(),
+      maxQueryExecutionTime: 100, // Log queries taking longer than 100ms
+      subscribers: [QuerySubscriber],
     }),
     AdminModule,
     SellerModule,
@@ -78,8 +86,15 @@ import { Notification } from './notification/entities/notification.entity';
     NotificationModule,
     CartModule,
     PaymentModule,
+    MonitoringModule,
   ],
   controllers: [MaillerController],
-  providers: [MaillerService],
+  providers: [
+    MaillerService,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: QueryTimingInterceptor,
+    },
+  ],
 })
 export class AppModule {}

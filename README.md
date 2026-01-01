@@ -1,19 +1,188 @@
-# E-Commerce Platform
+# 🛒 E-Commerce Platform
 
-Full-stack e-commerce platform with Next.js frontend and NestJS backend.
+A full-stack, production-ready e-commerce platform built with **Next.js 15**, **NestJS**, **PostgreSQL**, and **TypeScript**. Features real-time notifications, secure payments, admin dashboard, seller management, and comprehensive API testing.
 
-## 🚀 Features
+[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
+[![NestJS](https://img.shields.io/badge/NestJS-E0234E?style=for-the-badge&logo=nestjs&logoColor=white)](https://nestjs.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Stripe](https://img.shields.io/badge/Stripe-008CDD?style=for-the-badge&logo=stripe&logoColor=white)](https://stripe.com/)
 
-- **User Authentication** - JWT-based authentication with OAuth support
-- **Product Management** - Complete CRUD operations for products
-- **Shopping Cart** - Real-time cart management
-- **Order Processing** - Complete order lifecycle management
-- **Seller Dashboard** - Seller verification and product management
-- **Admin Panel** - Platform administration and analytics
-- **Real-time Notifications** - Pusher-based notification system
-- **Secure Payments** - Payment processing integration
-- **Image Upload** - Product image management
-- **API Documentation** - Complete Swagger/OpenAPI documentation
+
+---
+
+## 📋 Table of Contents
+
+- [Features](#-features)
+- [Tech Stack](#-tech-stack)
+- [Architecture](#-architecture)
+- [Quick Start](#-quick-start)
+- [Project Structure](#-project-structure)
+- [API Documentation](#-api-documentation)
+- [Authentication & Security](#-authentication--security)
+- [Payment Integration](#-payment-integration)
+- [Notification System](#-notification-system)
+- [Admin Dashboard](#-admin-dashboard)
+- [Testing](#-testing)
+- [Deployment](#-deployment)
+- [Environment Variables](#-environment-variables)
+- [Contributing](#-contributing)
+- [License](#-license)
+
+---
+
+## ✨ Features
+
+### 🛍️ Core E-Commerce
+- **Product Management**: CRUD operations with multi-image upload
+- **Shopping Cart**: Session-based cart with real-time updates
+- **Order Management**: Complete order lifecycle (placed → processing → shipped → delivered)
+- **Search & Filter**: Advanced product search with category filtering
+- **Pagination**: Efficient data loading for large catalogs
+
+### 👥 User Roles & Authentication
+- **Multi-Role System**: Admin, Seller, Buyer roles with role-based access control
+- **JWT Authentication**: Secure token-based auth with refresh tokens
+- **OAuth2 Integration**: Google OAuth login
+- **Password Recovery**: OTP-based password reset via email
+- **Session Management**: Automatic token refresh and logout
+
+### 💳 Payment Processing
+- **Stripe Integration**: Secure payment processing
+- **Payment Methods**: Credit/debit cards, digital wallets
+- **Payment Intents**: SCA-compliant payment flow
+- **Invoice Generation**: Automated invoice creation and delivery
+- **Refund System**: Admin-controlled refund processing
+
+### 🔔 Real-Time Notifications
+- **Pusher Integration**: WebSocket-based real-time notifications
+- **Event-Driven**: Order updates, payment status, seller verification
+- **Multi-Channel**: In-app notifications + email notifications
+- **Notification Bell**: Unread count badge with popup panel
+- **Auto-Refresh**: Real-time notification delivery
+
+### 👨‍💼 Admin Dashboard
+- **Platform Overview**: Revenue, orders, users, products analytics
+- **User Management**: View, edit, activate/deactivate users
+- **Order Management**: Monitor and update order statuses
+- **Payment Tracking**: View all transactions and process refunds
+- **Seller Verification**: Approve/reject seller applications
+- **Report Generation**: Sales, revenue, user activity reports
+- **Charts & Analytics**: Interactive charts for business insights
+
+### 🏪 Seller Dashboard
+- **Product Management**: Add, edit, delete products
+- **Order Management**: View and fulfill customer orders
+- **Financial Overview**: Revenue, payouts, transaction history
+- **Inventory Tracking**: Stock management with low-stock alerts
+- **Performance Metrics**: Sales analytics and top products
+
+### 📊 Advanced Features
+- **Image Management**: Multi-image upload with CDN support
+- **Email System**: Nodemailer integration for transactional emails
+- **API Rate Limiting**: Throttling to prevent abuse
+- **CORS Configuration**: Secure cross-origin resource sharing
+- **Error Handling**: Comprehensive error tracking and logging
+- **Data Validation**: Input validation with class-validator
+- **Database Migrations**: TypeORM migrations for schema management
+- **Load Testing**: k6 integration for performance testing
+
+---
+
+## 🚀 Tech Stack
+
+### Frontend
+- **Framework**: Next.js 15 (App Router)
+- **Language**: TypeScript 5.x
+- **Styling**: Tailwind CSS
+- **State Management**: React Context API
+- **HTTP Client**: Axios
+- **Notifications**: Pusher Client
+- **Forms**: React Hook Form
+- **UI Components**: Custom component library
+
+### Backend
+- **Framework**: NestJS 10.x
+- **Language**: TypeScript 5.x
+- **Database**: PostgreSQL 16
+- **ORM**: TypeORM
+- **Authentication**: JWT + Passport
+- **Payment**: Stripe SDK
+- **Email**: Nodemailer
+- **WebSockets**: Pusher
+- **Validation**: class-validator
+- **Documentation**: Swagger/OpenAPI
+
+### DevOps & Testing
+- **API Testing**: k6 Load Testing
+- **Load Testing**: 4 test scenarios (smoke, load, stress, spike)
+- **Version Control**: Git
+- **CI/CD**: GitHub Actions ready
+- **Deployment**: Render (backend), Vercel (frontend), Neon (database)
+- **Monitoring**: Built-in logging and error tracking
+
+---
+
+## 🏗️ Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         CLIENT LAYER                             │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
+│  │   Buyer UI   │  │  Seller UI   │  │   Admin UI   │         │
+│  │  (Next.js)   │  │  (Next.js)   │  │  (Next.js)   │         │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘         │
+│         │                  │                  │                  │
+│         └──────────────────┴──────────────────┘                  │
+│                            │                                     │
+└────────────────────────────┼─────────────────────────────────────┘
+                             │
+                    ┌────────▼────────┐
+                    │   API Gateway   │
+                    │  (CORS/Auth)    │
+                    └────────┬────────┘
+                             │
+┌────────────────────────────┼─────────────────────────────────────┐
+│                    APPLICATION LAYER                              │
+│                    ┌───────▼────────┐                            │
+│                    │   NestJS API   │                            │
+│                    │   Controllers  │                            │
+│                    └───────┬────────┘                            │
+│                            │                                     │
+│         ┌──────────────────┼──────────────────┐                 │
+│         │                  │                  │                  │
+│    ┌────▼────┐      ┌─────▼─────┐     ┌─────▼─────┐           │
+│    │  Auth   │      │ Business  │     │  Payment  │           │
+│    │ Service │      │  Logic    │     │  Service  │           │
+│    └────┬────┘      └─────┬─────┘     └─────┬─────┘           │
+│         │                  │                  │                  │
+│    ┌────▼────┐      ┌─────▼─────┐     ┌─────▼─────┐           │
+│    │  JWT    │      │ TypeORM   │     │  Stripe   │           │
+│    │ Guard   │      │Repository │     │    SDK    │           │
+│    └─────────┘      └─────┬─────┘     └───────────┘           │
+│                            │                                     │
+└────────────────────────────┼─────────────────────────────────────┘
+                             │
+┌────────────────────────────┼─────────────────────────────────────┐
+│                       DATA LAYER                                  │
+│                    ┌───────▼────────┐                            │
+│                    │   PostgreSQL   │                            │
+│         ┌──────────┤    Database    ├──────────┐                │
+│         │          └────────────────┘          │                 │
+│    ┌────▼────┐   ┌────────┐   ┌────────┐  ┌──▼──────┐         │
+│    │  Users  │   │Products│   │ Orders │  │Payments │         │
+│    │  Table  │   │ Table  │   │ Table  │  │  Table  │         │
+│    └─────────┘   └────────┘   └────────┘  └─────────┘         │
+└───────────────────────────────────────────────────────────────────┘
+
+┌───────────────────────────────────────────────────────────────────┐
+│                     EXTERNAL SERVICES                              │
+│   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐    │
+│   │  Stripe  │   │  Pusher  │   │   SMTP   │   │  Neon DB │    │
+│   │ Payments │   │WebSockets│   │   Email  │   │  Cloud   │    │
+│   └──────────┘   └──────────┘   └──────────┘   └──────────┘    │
+└───────────────────────────────────────────────────────────────────┘
+```
 
 ## 📁 Project Structure
 
