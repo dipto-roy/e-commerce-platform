@@ -1,5 +1,4 @@
 import { Logger } from '@nestjs/common';
-import { QueryRunner } from 'typeorm';
 
 export class DatabaseQueryLogger {
   private logger = new Logger('DatabaseQuery');
@@ -70,7 +69,7 @@ export class DatabaseQueryLogger {
   /**
    * Log query errors
    */
-  logQueryError(error: string, query: string, parameters: any[]) {
+  logQueryError(error: string, query: string, _parameters: any[]) {
     this.logger.error(`❌ Query Error:\n${query}\nError: ${error}`);
   }
 

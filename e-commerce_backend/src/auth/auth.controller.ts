@@ -171,11 +171,12 @@ export class AuthController {
         statusCode: 201,
         user: result.user,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       // Check if it's a seller verification error
-      if (error.message && error.message.includes('pending verification')) {
+      const errMsg = error instanceof Error ? error.message : '';
+      if (errMsg.includes('pending verification')) {
         throw new UnauthorizedException({
-          message: error.message,
+          message: errMsg,
           needsVerification: true,
         });
       }
@@ -212,8 +213,11 @@ export class AuthController {
     if (refreshToken) {
       try {
         await this.authService.logout(refreshToken);
-      } catch (error) {
-        console.warn('Failed to revoke refresh token:', error.message);
+      } catch (error: unknown) {
+        console.warn(
+          'Failed to revoke refresh token:',
+          error instanceof Error ? error.message : error,
+        );
         // Continue with logout even if revocation fails
       }
     }
@@ -322,7 +326,10 @@ export class AuthController {
       response.clearCookie('access_token', cookieOptions);
       response.clearCookie('refresh_token', cookieOptions);
 
-      console.error('❌ Refresh token error:', error.message);
+      console.error(
+        '❌ Refresh token error:',
+        error instanceof Error ? error.message : error,
+      );
       throw new UnauthorizedException(
         'Invalid, expired, or revoked refresh token',
       );

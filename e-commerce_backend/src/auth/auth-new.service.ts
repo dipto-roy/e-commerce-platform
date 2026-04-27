@@ -83,6 +83,7 @@ export class AuthServiceNew {
     await this.usersRepository.save(user);
 
     // Remove password from response
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...userWithoutPassword } = user;
 
     return {
@@ -113,8 +114,11 @@ export class AuthServiceNew {
             ipAddress,
             userAgent,
           });
-        } catch (logError) {
-          console.warn('Failed to log login attempt:', logError.message);
+        } catch (logError: unknown) {
+          console.warn(
+            'Failed to log login attempt:',
+            logError instanceof Error ? logError.message : logError,
+          );
         }
         throw new UnauthorizedException('Invalid credentials');
       }
@@ -141,8 +145,11 @@ export class AuthServiceNew {
             ipAddress,
             userAgent,
           });
-        } catch (logError) {
-          console.warn('Failed to log login attempt:', logError.message);
+        } catch (logError: unknown) {
+          console.warn(
+            'Failed to log login attempt:',
+            logError instanceof Error ? logError.message : logError,
+          );
         }
         throw new UnauthorizedException('Invalid credentials');
       }
@@ -167,6 +174,7 @@ export class AuthServiceNew {
       const tokens = await this.generateTokenPair(user, ipAddress, userAgent);
 
       // Remove password from response
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { password: _, ...userWithoutPassword } = user;
 
       // Log successful login
@@ -180,8 +188,11 @@ export class AuthServiceNew {
           ipAddress,
           userAgent,
         });
-      } catch (logError) {
-        console.warn('Failed to log login attempt:', logError.message);
+      } catch (logError: unknown) {
+        console.warn(
+          'Failed to log login attempt:',
+          logError instanceof Error ? logError.message : logError,
+        );
         // Continue with login even if logging fails
       }
 
@@ -190,25 +201,29 @@ export class AuthServiceNew {
         user: userWithoutPassword,
         message: 'Login successful',
       };
-    } catch (error) {
+    } catch (error: unknown) {
       // If it's already an UnauthorizedException, rethrow it
       if (error instanceof UnauthorizedException) {
         throw error;
       }
 
       // Log unexpected errors
+      const errMsg = error instanceof Error ? error.message : String(error);
       try {
         await this.logLoginAttempt({
           userId: null,
           email,
           role: null,
           success: false,
-          errorMessage: `Unexpected error: ${error.message}`,
+          errorMessage: `Unexpected error: ${errMsg}`,
           ipAddress,
           userAgent,
         });
-      } catch (logError) {
-        console.warn('Failed to log failed login attempt:', logError.message);
+      } catch (logError: unknown) {
+        console.warn(
+          'Failed to log failed login attempt:',
+          logError instanceof Error ? logError.message : logError,
+        );
       }
 
       throw new UnauthorizedException('Login failed');
@@ -367,7 +382,8 @@ export class AuthServiceNew {
     const user = await this.usersRepository.findOne({ where: { email } });
 
     if (user && (await bcrypt.compare(password, user.password))) {
-      const { password, ...result } = user;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { password: _pwd, ...result } = user;
       return result;
     }
     return null;

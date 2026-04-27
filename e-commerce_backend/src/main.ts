@@ -5,7 +5,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { join } from 'path';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { config } from 'dotenv';
-import * as cookieParser from 'cookie-parser';
+import cookieParser from 'cookie-parser';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 config();
@@ -52,8 +52,8 @@ async function bootstrap() {
   const corsOrigins = process.env.CORS_ORIGIN
     ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim())
     : [
-        'http://localhost:3000', // Next.js frontend (localhost)
-        'http://127.0.0.1:3000', // Next.js frontend (127.0.0.1)
+        'http://localhost:3010', // Next.js frontend (localhost)
+        'http://127.0.0.1:3010', // Next.js frontend (127.0.0.1)
         'http://localhost:4050', // Alternative frontend port
         'http://127.0.0.1:4050', // Alternative frontend port (127.0.0.1)
         'http://localhost:4051', // Alternative frontend port
@@ -121,9 +121,15 @@ async function bootstrap() {
     .addTag('Sellers', 'Seller verification and management')
     .addTag('Orders', 'Order processing and management')
     .addTag('Cart', 'Shopping cart operations')
+    .addTag('Payments', 'Payment processing and Stripe integration')
     .addTag('Notifications', 'Real-time notifications with Pusher')
+    .addTag('Notification Tests', 'Notification testing endpoints')
     .addTag('Admin', 'Admin-only operations')
+    .addTag('Financial', 'Financial records and seller payouts')
     .addTag('Image Upload', 'Product image upload and management')
+    .addTag('Emails', 'Email sending operations')
+    .addTag('Customers', 'Customer management')
+    .addTag('monitoring', 'Database and system monitoring')
     .addBearerAuth(
       {
         type: 'http',
@@ -171,8 +177,9 @@ async function bootstrap() {
     console.log(
       `📚 Swagger API Documentation: http://localhost:${port}/api-docs`,
     );
-  } catch (error) {
-    if (error.code === 'EADDRINUSE') {
+  } catch (error: unknown) {
+    const err = error as Record<string, unknown>;
+    if (err.code === 'EADDRINUSE') {
       console.error(
         `❌ Port ${port} is already in use. Please try a different port.`,
       );
@@ -180,7 +187,7 @@ async function bootstrap() {
         `💡 You can set a different port using: PORT=3000 npm run start:dev`,
       );
     } else {
-      console.error('❌ Failed to start application:', error.message);
+      console.error('❌ Failed to start application:', err.message);
     }
     process.exit(1);
   }

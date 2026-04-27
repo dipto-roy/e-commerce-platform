@@ -1,10 +1,7 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { AuthService } from './auth.service';
 import { AuthServiceNew } from './auth-new.service';
 import { AuthController } from './auth.controller';
-import { AuthControllerNew } from './auth-new.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../users/entities/unified-user.entity';
 import { LoginLog } from './entities/login-log.entity';
@@ -51,7 +48,6 @@ import { ThrottlerModule } from '@nestjs/throttler';
     }),
   ],
   providers: [
-    AuthService,
     AuthServiceNew,
     JwtStrategy,
     RefreshTokenStrategy,
@@ -61,7 +57,6 @@ import { ThrottlerModule } from '@nestjs/throttler';
   ],
   controllers: [AuthController], // Using updated controller with AuthServiceNew
   exports: [
-    AuthService,
     AuthServiceNew,
     JwtStrategy,
     PassportModule,

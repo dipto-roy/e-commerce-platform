@@ -15,15 +15,23 @@ import {
   NotFoundException,
   Query,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiParam,
+} from '@nestjs/swagger';
 import { Response } from 'express';
 import { PaymentService } from './payment.service';
 import { StripeService } from './services/stripe.service';
 import { InvoiceService } from './services/invoice.service';
 import { JwtAuthGuard } from '../auth/jwt-auth/jwt-auth.guard';
-import { Roles } from 'src/auth/decorators/roles.decorator';
+import { Roles } from 'src/auth/roles.decorator/roles.decorator';
 import { Role } from 'src/users/entities/role.enum';
 import * as fs from 'fs';
 
+@ApiTags('Payments')
 @Controller('payments')
 export class PaymentController {
   private readonly logger = new Logger(PaymentController.name);
@@ -38,6 +46,14 @@ export class PaymentController {
    * Get all payments with pagination and filters (Admin only)
    * GET /api/v1/payments
    */
+  @ApiOperation({ summary: 'Get all payments with pagination (Admin only)' })
+  @ApiBearerAuth('JWT-auth')
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'status', required: false, type: String })
+  @ApiQuery({ name: 'startDate', required: false, type: String })
+  @ApiQuery({ name: 'endDate', required: false, type: String })
+  @ApiQuery({ name: 'search', required: false, type: String })
   @Get()
   @UseGuards(JwtAuthGuard)
   @Roles(Role.ADMIN)
@@ -63,11 +79,9 @@ export class PaymentController {
         success: true,
         data: result,
       };
-    } catch (error) {
-      this.logger.error(
-        `Failed to fetch payments: ${error.message}`,
-        error.stack,
-      );
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.logger.error(`Failed to fetch payments: ${err.message}`, err.stack);
       throw new BadRequestException('Failed to fetch payments');
     }
   }
@@ -76,6 +90,7 @@ export class PaymentController {
    * Stripe Webhook Handler
    * POST /api/v1/payments/stripe/webhook
    */
+  @ApiOperation({ summary: 'Handle Stripe webhook events' })
   @Post('stripe/webhook')
   async handleStripeWebhook(
     @Req() request: RawBodyRequest<Request>,
@@ -141,8 +156,9 @@ export class PaymentController {
 
       // Acknowledge receipt
       return response.status(HttpStatus.OK).json({ received: true });
-    } catch (error) {
-      this.logger.error(`Webhook error: ${error.message}`, error.stack);
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.logger.error(`Webhook error: ${err.message}`, err.stack);
       return response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: 'Webhook processing failed',
@@ -183,10 +199,11 @@ export class PaymentController {
       this.logger.log(
         `Payment succeeded for order ${orderId}, PaymentIntent: ${paymentIntent.id}`,
       );
-    } catch (error) {
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
       this.logger.error(
-        `Failed to handle payment success: ${error.message}`,
-        error.stack,
+        `Failed to handle payment success: ${err.message}`,
+        err.stack,
       );
     }
   }
@@ -210,10 +227,11 @@ export class PaymentController {
       );
 
       this.logger.log(`Payment failed for order ${orderId}`);
-    } catch (error) {
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
       this.logger.error(
-        `Failed to handle payment failure: ${error.message}`,
-        error.stack,
+        `Failed to handle payment failure: ${err.message}`,
+        err.stack,
       );
     }
   }
@@ -228,8 +246,11 @@ export class PaymentController {
 
       await this.paymentService.markPaymentCanceled(parseInt(orderId));
       this.logger.log(`Payment canceled for order ${orderId}`);
-    } catch (error) {
-      this.logger.error(`Failed to handle payment cancellation: ${error.message}`);
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.logger.error(
+        `Failed to handle payment cancellation: ${err.message}`,
+      );
     }
   }
 
@@ -244,8 +265,9 @@ export class PaymentController {
         await this.paymentService.markPaymentRefunded(order.id);
         this.logger.log(`Refund processed for order ${order.id}`);
       }
-    } catch (error) {
-      this.logger.error(`Failed to handle refund: ${error.message}`);
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.logger.error(`Failed to handle refund: ${err.message}`);
     }
   }
 
@@ -253,6 +275,9 @@ export class PaymentController {
    * Get payment status
    * GET /api/v1/payments/:orderId/status
    */
+  @ApiOperation({ summary: 'Get payment status for an order' })
+  @ApiBearerAuth('JWT-auth')
+  @ApiParam({ name: 'orderId', type: Number })
   @Get(':orderId/status')
   @UseGuards(JwtAuthGuard)
   async getPaymentStatus(@Param('orderId') orderId: number) {
@@ -262,8 +287,10 @@ export class PaymentController {
         success: true,
         data: status,
       };
-    } catch (error) {
-      throw new NotFoundException(`Payment status not found for order ${orderId}`);
+    } catch {
+      throw new NotFoundException(
+        `Payment status not found for order ${orderId}`,
+      );
     }
   }
 
@@ -271,6 +298,9 @@ export class PaymentController {
    * Download invoice
    * GET /api/v1/payments/:orderId/invoice
    */
+  @ApiOperation({ summary: 'Download invoice PDF for an order' })
+  @ApiBearerAuth('JWT-auth')
+  @ApiParam({ name: 'orderId', type: Number })
   @Get(':orderId/invoice')
   @UseGuards(JwtAuthGuard)
   async downloadInvoice(
@@ -299,8 +329,9 @@ export class PaymentController {
 
       const fileStream = fs.createReadStream(invoicePath);
       fileStream.pipe(response);
-    } catch (error) {
-      this.logger.error(`Failed to download invoice: ${error.message}`);
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.logger.error(`Failed to download invoice: ${err.message}`);
       throw error;
     }
   }
@@ -309,6 +340,9 @@ export class PaymentController {
    * Request refund
    * POST /api/v1/payments/:orderId/refund
    */
+  @ApiOperation({ summary: 'Request refund for an order' })
+  @ApiBearerAuth('JWT-auth')
+  @ApiParam({ name: 'orderId', type: Number })
   @Post(':orderId/refund')
   @UseGuards(JwtAuthGuard)
   async requestRefund(
@@ -327,9 +361,10 @@ export class PaymentController {
         message: 'Refund processed successfully',
         data: result,
       };
-    } catch (error) {
-      this.logger.error(`Refund failed: ${error.message}`);
-      throw new BadRequestException(error.message);
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.logger.error(`Refund failed: ${err.message}`);
+      throw new BadRequestException(err.message);
     }
   }
 }

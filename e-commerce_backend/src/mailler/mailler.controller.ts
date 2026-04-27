@@ -1,10 +1,12 @@
 import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { MaillerService } from './mailler.service';
 import { JwtAuthGuard } from '../auth/jwt-auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles/roles.guard';
 import { Roles } from '../auth/roles.decorator/roles.decorator';
 import { Role } from '../auth/roles.enum/roles.enum';
 
+@ApiTags('Emails')
 @Controller('mailer')
 export class MaillerController {
   constructor(private readonly maillerService: MaillerService) {}

@@ -1,7 +1,9 @@
 import { Controller, Get, Post } from '@nestjs/common';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { NotificationService } from './notification.service';
 import { Role } from '../users/entities/role.enum';
 
+@ApiTags('Notification Tests')
 @Controller('notification-test')
 export class NotificationTestController {
   constructor(private readonly notificationService: NotificationService) {}
