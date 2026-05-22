@@ -3,41 +3,27 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSellerGuard } from '@/hooks/useAuthGuard';
 import { financialAPI } from '@/utils/api';
+import {
+  DollarSign, ShoppingCart, Package, BarChart3,
+  Clock, CheckCircle, RefreshCw, XCircle,
+} from 'lucide-react';
 
 interface DashboardAnalytics {
-  totalProducts: number;
-  activeProducts: number;
-  totalOrders: number;
-  totalRevenue: number;
-  pendingOrders: number;
-  completedOrders: number;
-  averageOrderValue: number;
-  conversionRate: number;
-  topSellingProducts: Array<{
-    productId: number;
-    productName: string;
-    totalSold: number;
-    revenue: number;
-  }>;
-  monthlyStats: Array<{
-    month: string;
-    orders: number;
-    revenue: number;
-  }>;
-  recentActivity: Array<{
-    type: string;
-    description: string;
-    timestamp: string;
-  }>;
+  totalProducts: number; activeProducts: number; totalOrders: number;
+  totalRevenue: number; pendingOrders: number; completedOrders: number;
+  averageOrderValue: number; conversionRate: number;
+  topSellingProducts: Array<{ productId: number; productName: string; totalSold: number; revenue: number }>;
+  monthlyStats: Array<{ month: string; orders: number; revenue: number }>;
+  recentActivity: Array<{ type: string; description: string; timestamp: string }>;
 }
 
 interface ProductAnalytics {
-  productViews: number;
-  totalSales: number;
-  averageRating: number;
-  stockLevel: string;
-  performanceScore: number;
+  productViews: number; totalSales: number; averageRating: number;
+  stockLevel: string; performanceScore: number;
 }
+
+const fmt = (v: any) => { const n = Number(v || 0); return isNaN(n) ? '0.00' : n.toFixed(2); };
+const fmtN = (v: any, d = 1) => { const n = Number(v || 0); return isNaN(n) ? '0' : n.toFixed(d); };
 
 export default function SellerAnalytics() {
   const { user, loading, isAuthorized } = useSellerGuard();
@@ -48,27 +34,11 @@ export default function SellerAnalytics() {
   const [error, setError] = useState<string | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState<'7d' | '30d' | '90d' | '1y'>('30d');
 
-  // Safe number formatter
-  const formatCurrency = (value: any): string => {
-    const numValue = Number(value || 0);
-    return isNaN(numValue) ? '0.00' : numValue.toFixed(2);
-  };
-
-  const formatNumber = (value: any, decimals: number = 1): string => {
-    const numValue = Number(value || 0);
-    return isNaN(numValue) ? '0' : numValue.toFixed(decimals);
-  };
-
   useEffect(() => {
     if (user && isAuthorized) {
       fetchAnalytics();
-      
-      // Auto-refresh analytics every 30 seconds for real-time updates
-      const interval = setInterval(() => {
-        fetchAnalytics();
-      }, 30000);
-      
-      return () => clearInterval(interval);
+      const id = setInterval(fetchAnalytics, 30000);
+      return () => clearInterval(id);
     }
   }, [user, isAuthorized, selectedPeriod]);
 
@@ -76,257 +46,184 @@ export default function SellerAnalytics() {
     setLoadingData(true);
     setError(null);
     try {
-      // Fetch financial summary from the financial API
-      const summaryResponse = await financialAPI.getMySummary();
-      
-      if (summaryResponse.data) {
-        const financialData = summaryResponse.data as any; // Type assertion for API response
-        
-        // Map financial API data to analytics structure
+      const res = await financialAPI.getMySummary();
+      if (res.data) {
+        const d = res.data as any;
         setAnalytics({
-          totalProducts: financialData.totalProducts || 0,
-          activeProducts: financialData.activeProducts || 0,
-          totalOrders: financialData.totalOrders || 0,
-          totalRevenue: financialData.totalRevenue || 0,
-          pendingOrders: financialData.pendingOrders || 0,
-          completedOrders: financialData.completedOrders || 0,
-          averageOrderValue: financialData.averageOrderValue || 0,
-          conversionRate: financialData.conversionRate || 0,
-          topSellingProducts: financialData.topSellingProducts || [],
-          monthlyStats: financialData.monthlyStats || [],
-          recentActivity: financialData.recentActivity || []
+          totalProducts: d.totalProducts || 0, activeProducts: d.activeProducts || 0,
+          totalOrders: d.totalOrders || 0, totalRevenue: d.totalRevenue || 0,
+          pendingOrders: d.pendingOrders || 0, completedOrders: d.completedOrders || 0,
+          averageOrderValue: d.averageOrderValue || 0, conversionRate: d.conversionRate || 0,
+          topSellingProducts: d.topSellingProducts || [], monthlyStats: d.monthlyStats || [],
+          recentActivity: d.recentActivity || [],
         });
-        
-        // Set product analytics if available
-        if (financialData.productAnalytics) {
-          setProductAnalytics({
-            productViews: financialData.productAnalytics.productViews || 0,
-            totalSales: financialData.productAnalytics.totalSales || 0,
-            averageRating: financialData.productAnalytics.averageRating || 0,
-            stockLevel: financialData.productAnalytics.stockLevel || 'Unknown',
-            performanceScore: financialData.productAnalytics.performanceScore || 0
-          });
-        }
+        if (d.productAnalytics) setProductAnalytics({ productViews: d.productAnalytics.productViews || 0, totalSales: d.productAnalytics.totalSales || 0, averageRating: d.productAnalytics.averageRating || 0, stockLevel: d.productAnalytics.stockLevel || 'Unknown', performanceScore: d.productAnalytics.performanceScore || 0 });
       }
-
     } catch (err) {
-      console.error('Failed to fetch analytics:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch analytics data');
-      
-      // Set empty data on error
-      setAnalytics({
-        totalProducts: 0,
-        activeProducts: 0,
-        totalOrders: 0,
-        totalRevenue: 0,
-        pendingOrders: 0,
-        completedOrders: 0,
-        averageOrderValue: 0,
-        conversionRate: 0,
-        topSellingProducts: [],
-        monthlyStats: [],
-        recentActivity: []
-      });
-    } finally {
-      setLoadingData(false);
-    }
+      setAnalytics({ totalProducts: 0, activeProducts: 0, totalOrders: 0, totalRevenue: 0, pendingOrders: 0, completedOrders: 0, averageOrderValue: 0, conversionRate: 0, topSellingProducts: [], monthlyStats: [], recentActivity: [] });
+    } finally { setLoadingData(false); }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-white">Loading...</div>
+      <div className="page-wrapper flex items-center justify-center">
+        <span className="spinner" style={{ width: '3rem', height: '3rem', borderWidth: '3px' }} />
       </div>
     );
   }
 
   if (!isAuthorized) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <div className="text-white text-center">
-          <h2 className="text-2xl font-bold mb-4">Unauthorized</h2>
-          <p>You don't have permission to access this page.</p>
+      <div className="page-wrapper flex items-center justify-center p-6">
+        <div className="card p-8 max-w-sm text-center">
+          <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Unauthorized</h2>
+          <button onClick={() => router.push('/login')} className="btn btn-primary btn-full mt-4">Go to Login</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900">
-      {/* Header */}
-      <header className="bg-gray-800 border-b border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
+    <div className="page-wrapper">
+      <div className="page-header">
+        <div className="container-app">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-bold text-white">Sales Analytics</h1>
-              <p className="text-gray-400">Track your performance and growth</p>
+              <h1 className="section-title">Sales Analytics</h1>
+              <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+                Track your performance and growth
+              </p>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex gap-2">
               <select
                 value={selectedPeriod}
                 onChange={(e) => setSelectedPeriod(e.target.value as any)}
-                className="bg-gray-700 border border-gray-600 text-white rounded-md px-3 py-2"
+                className="input"
+                style={{ width: 'auto' }}
               >
                 <option value="7d">Last 7 days</option>
                 <option value="30d">Last 30 days</option>
                 <option value="90d">Last 90 days</option>
                 <option value="1y">Last year</option>
               </select>
-              <button
-                onClick={() => router.push('/seller/dashboard')}
-                className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
-              >
-                Back to Dashboard
+              <button onClick={fetchAnalytics} disabled={loadingData} className="btn btn-outline btn-sm">
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingData ? 'animate-spin' : ''}`} />
+              </button>
+              <button onClick={() => router.push('/seller/dashboard')} className="btn btn-outline btn-sm">
+                ← Dashboard
               </button>
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {loadingData ? (
-          <div className="text-center py-8">
-            <div className="text-white">Loading analytics...</div>
+      <div className="container-app py-8">
+        {loadingData && (
+          <div className="flex justify-center py-16">
+            <span className="spinner" style={{ width: '3rem', height: '3rem', borderWidth: '3px' }} />
           </div>
-        ) : error ? (
-          <div className="bg-red-900 border border-red-700 rounded-lg p-6 text-center">
-            <p className="text-red-300">{error}</p>
-            <button
-              onClick={fetchAnalytics}
-              className="mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-            >
-              Retry
-            </button>
+        )}
+
+        {error && !loadingData && (
+          <div className="alert alert-error mb-6">
+            <XCircle className="w-4 h-4 shrink-0" />
+            <div className="flex-1">
+              <p>{error}</p>
+              <button onClick={fetchAnalytics} className="btn btn-outline btn-sm mt-2">Retry</button>
+            </div>
           </div>
-        ) : (
-          <div className="space-y-8">
+        )}
+
+        {!loadingData && analytics && (
+          <div className="space-y-6">
             {/* Key Metrics */}
-            {analytics && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-gray-800 rounded-lg p-6">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-green-600 rounded-md">
-                      <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                      </svg>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {[
+                { label: 'Total Revenue',   value: `$${fmt(analytics.totalRevenue)}`,       icon: DollarSign,  color: '#10b981' },
+                { label: 'Total Orders',    value: analytics.totalOrders,                    icon: ShoppingCart, color: '#3b82f6' },
+                { label: 'Active Products', value: analytics.activeProducts,                 icon: Package,     color: '#8b5cf6' },
+                { label: 'Avg Order Value', value: `$${fmt(analytics.averageOrderValue)}`,   icon: BarChart3,   color: '#f59e0b' },
+              ].map(({ label, value, icon: Icon, color }) => (
+                <div key={label} className="card p-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                      style={{ background: `${color}18` }}>
+                      <Icon className="w-5 h-5" style={{ color }} />
                     </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-400">Total Revenue</p>
-                      <p className="text-2xl font-bold text-white">${formatCurrency(analytics?.totalRevenue)}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-gray-800 rounded-lg p-6">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-blue-600 rounded-md">
-                      <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                      </svg>
-                    </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-400">Total Orders</p>
-                      <p className="text-2xl font-bold text-white">{analytics.totalOrders}</p>
+                    <div>
+                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{label}</p>
+                      <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
                     </div>
                   </div>
                 </div>
+              ))}
+            </div>
 
-                <div className="bg-gray-800 rounded-lg p-6">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-purple-600 rounded-md">
-                      <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                      </svg>
+            {/* Order Status & Product Performance */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="card p-6">
+                <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Order Status</h3>
+                <div className="space-y-3">
+                  {[
+                    { label: 'Pending Orders',  value: analytics.pendingOrders,                   icon: Clock,         color: '#f59e0b' },
+                    { label: 'Completed Orders', value: analytics.completedOrders,                 icon: CheckCircle,   color: '#10b981' },
+                    { label: 'Conversion Rate', value: `${fmtN(analytics.conversionRate, 1)}%`,   icon: BarChart3,     color: '#3b82f6' },
+                  ].map(({ label, value, icon: Icon, color }) => (
+                    <div key={label} className="flex items-center justify-between py-2 border-b border-[var(--border)] last:border-0">
+                      <div className="flex items-center gap-2">
+                        <Icon className="w-4 h-4" style={{ color }} />
+                        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{label}</span>
+                      </div>
+                      <span className="font-semibold text-sm" style={{ color }}>{value}</span>
                     </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-400">Active Products</p>
-                      <p className="text-2xl font-bold text-white">{analytics.activeProducts}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-gray-800 rounded-lg p-6">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-indigo-600 rounded-md">
-                      <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                      </svg>
-                    </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-400">Avg Order Value</p>
-                      <p className="text-2xl font-bold text-white">${formatCurrency(analytics?.averageOrderValue)}</p>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
-            )}
 
-            {/* Performance Metrics */}
-            {analytics && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-gray-800 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-white mb-4">Order Status Breakdown</h3>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-400">Pending Orders</span>
-                      <span className="text-yellow-400 font-medium">{analytics.pendingOrders}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-400">Completed Orders</span>
-                      <span className="text-green-400 font-medium">{analytics.completedOrders}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-400">Conversion Rate</span>
-                      <span className="text-blue-400 font-medium">{formatNumber(analytics?.conversionRate, 1)}%</span>
-                    </div>
+              {productAnalytics && (
+                <div className="card p-6">
+                  <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Product Performance</h3>
+                  <div className="space-y-3">
+                    {[
+                      { label: 'Total Views',        value: productAnalytics.productViews.toLocaleString(), color: '#3b82f6' },
+                      { label: 'Total Sales',        value: productAnalytics.totalSales,                    color: '#10b981' },
+                      { label: 'Average Rating',     value: `${fmtN(productAnalytics.averageRating, 1)} ⭐`, color: '#f59e0b' },
+                      { label: 'Performance Score',  value: `${fmtN(productAnalytics.performanceScore, 1)}/100`, color: '#8b5cf6' },
+                    ].map(({ label, value, color }) => (
+                      <div key={label} className="flex items-center justify-between py-2 border-b border-[var(--border)] last:border-0">
+                        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{label}</span>
+                        <span className="font-semibold text-sm" style={{ color }}>{value}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-
-                {productAnalytics && (
-                  <div className="bg-gray-800 rounded-lg p-6">
-                    <h3 className="text-lg font-semibold text-white mb-4">Product Performance</h3>
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">Total Views</span>
-                        <span className="text-blue-400 font-medium">{productAnalytics.productViews.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">Total Sales</span>
-                        <span className="text-green-400 font-medium">{productAnalytics.totalSales}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">Average Rating</span>
-                        <span className="text-yellow-400 font-medium">{formatNumber(productAnalytics?.averageRating, 1)} ⭐</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">Performance Score</span>
-                        <span className="text-purple-400 font-medium">{formatNumber(productAnalytics?.performanceScore, 1)}/100</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Top Selling Products */}
-            {analytics && analytics.topSellingProducts.length > 0 && (
-              <div className="bg-gray-800 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Top Selling Products</h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
+            {analytics.topSellingProducts.length > 0 && (
+              <div className="card overflow-hidden">
+                <div className="px-6 py-4 border-b border-[var(--border)]">
+                  <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Top Selling Products</h3>
+                </div>
+                <div className="table-wrapper">
+                  <table className="table">
                     <thead>
-                      <tr className="border-b border-gray-700">
-                        <th className="text-left text-sm font-medium text-gray-400 pb-2">Product</th>
-                        <th className="text-left text-sm font-medium text-gray-400 pb-2">Units Sold</th>
-                        <th className="text-left text-sm font-medium text-gray-400 pb-2">Revenue</th>
+                      <tr>
+                        <th>Product</th>
+                        <th>Units Sold</th>
+                        <th>Revenue</th>
                       </tr>
                     </thead>
-                    <tbody className="space-y-2">
-                      {analytics.topSellingProducts.map((product, index) => (
-                        <tr key={product.productId} className="border-b border-gray-700">
-                          <td className="py-3 text-gray-300">{product.productName}</td>
-                          <td className="py-3 text-white font-medium">{product.totalSold}</td>
-                          <td className="py-3 text-green-400 font-medium">${product.revenue.toFixed(2)}</td>
+                    <tbody>
+                      {analytics.topSellingProducts.map((product) => (
+                        <tr key={product.productId}>
+                          <td style={{ color: 'var(--text-primary)' }}>{product.productName}</td>
+                          <td style={{ color: 'var(--text-secondary)' }}>{product.totalSold}</td>
+                          <td style={{ color: 'var(--accent-600)', fontWeight: 600 }}>
+                            ${product.revenue.toFixed(2)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -336,35 +233,28 @@ export default function SellerAnalytics() {
             )}
 
             {/* Quick Actions */}
-            <div className="bg-gray-800 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">Quick Actions</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <button
-                  onClick={() => router.push('/seller/orders')}
-                  className="p-4 bg-blue-600 rounded-lg text-white text-center hover:bg-blue-700 transition-colors"
-                >
-                  <div className="text-lg font-semibold">Manage Orders</div>
-                  <div className="text-sm opacity-80">View and update order status</div>
-                </button>
-                <button
-                  onClick={() => router.push('/seller/financial')}
-                  className="p-4 bg-green-600 rounded-lg text-white text-center hover:bg-green-700 transition-colors"
-                >
-                  <div className="text-lg font-semibold">Financial Dashboard</div>
-                  <div className="text-sm opacity-80">Track earnings and payouts</div>
-                </button>
-                <button
-                  onClick={() => router.push('/seller/products')}
-                  className="p-4 bg-purple-600 rounded-lg text-white text-center hover:bg-purple-700 transition-colors"
-                >
-                  <div className="text-lg font-semibold">Manage Products</div>
-                  <div className="text-sm opacity-80">Add or edit your listings</div>
-                </button>
+            <div className="card p-6">
+              <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Quick Actions</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {[
+                  { label: 'Manage Orders',       sub: 'View and update order status',   href: '/seller/orders',    primary: false },
+                  { label: 'Financial Dashboard', sub: 'Track earnings and payouts',     href: '/seller/financial', primary: true },
+                  { label: 'Manage Products',     sub: 'Add or edit your listings',      href: '/seller/products',  primary: false },
+                ].map(({ label, sub, href, primary }) => (
+                  <a key={label} href={href}
+                    className={`card p-4 text-center transition-all ${primary ? 'border-[var(--accent-400)]' : 'card-interactive'}`}
+                    style={primary ? { background: 'var(--accent-50)', borderColor: 'var(--accent-400)' } : {}}>
+                    <p className="font-semibold text-sm" style={{ color: primary ? 'var(--accent-700)' : 'var(--text-primary)' }}>
+                      {label}
+                    </p>
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{sub}</p>
+                  </a>
+                ))}
               </div>
             </div>
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }

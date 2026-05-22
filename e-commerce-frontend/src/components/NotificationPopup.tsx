@@ -83,8 +83,8 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({
     switch (notification.type) {
       case 'order':
         return {
-          bg: 'bg-blue-500',
-          border: 'border-blue-600',
+          bg: 'bg-emerald-500',
+          border: 'border-emerald-600',
           icon: 'text-white',
           text: 'text-white'
         };
@@ -112,8 +112,8 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({
         };
       default:
         return {
-          bg: 'bg-gray-500',
-          border: 'border-gray-600',
+          bg: 'bg-slate-600',
+          border: 'border-slate-700',
           icon: 'text-white',
           text: 'text-white'
         };

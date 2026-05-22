@@ -1,385 +1,218 @@
 'use client';
-
 import React, { useState } from 'react';
-import { 
-  FileText, 
-  Download, 
-  Calendar, 
-  TrendingUp, 
-  Users, 
-  Package, 
-  ShoppingCart, 
-  DollarSign,
-  BarChart3,
-  Loader2
+import {
+  FileText, Download, Calendar, TrendingUp, Users,
+  Package, ShoppingCart, DollarSign, BarChart3, CheckCircle,
 } from 'lucide-react';
 import api from '@/utils/api';
 
-// Report type configuration
-const reportTypes = [
-  {
-    value: 'sales',
-    label: 'Sales Report',
-    description: 'Detailed sales transactions and summary',
-    icon: DollarSign,
-    color: 'bg-green-100 text-green-600',
-  },
-  {
-    value: 'users',
-    label: 'Users Report',
-    description: 'User registration and activity metrics',
-    icon: Users,
-    color: 'bg-blue-100 text-blue-600',
-  },
-  {
-    value: 'products',
-    label: 'Products Report',
-    description: 'Product catalog and inventory status',
-    icon: Package,
-    color: 'bg-purple-100 text-purple-600',
-  },
-  {
-    value: 'orders',
-    label: 'Orders Report',
-    description: 'Order status and tracking information',
-    icon: ShoppingCart,
-    color: 'bg-orange-100 text-orange-600',
-  },
-  {
-    value: 'revenue',
-    label: 'Revenue Report',
-    description: 'Revenue analysis and trends by period',
-    icon: TrendingUp,
-    color: 'bg-emerald-100 text-emerald-600',
-  },
-  {
-    value: 'inventory',
-    label: 'Inventory Report',
-    description: 'Stock levels and low-stock alerts',
-    icon: BarChart3,
-    color: 'bg-amber-100 text-amber-600',
-  },
+const REPORT_TYPES = [
+  { value: 'sales',     label: 'Sales Report',     desc: 'Detailed sales transactions and summary',   icon: DollarSign,  color: 'var(--accent-500)' },
+  { value: 'users',     label: 'Users Report',     desc: 'User registration and activity metrics',    icon: Users,       color: '#3b82f6' },
+  { value: 'products',  label: 'Products Report',  desc: 'Product catalog and inventory status',      icon: Package,     color: '#8b5cf6' },
+  { value: 'orders',    label: 'Orders Report',    desc: 'Order status and tracking information',     icon: ShoppingCart,color: '#f59e0b' },
+  { value: 'revenue',   label: 'Revenue Report',   desc: 'Revenue analysis and trends by period',    icon: TrendingUp,  color: '#10b981' },
+  { value: 'inventory', label: 'Inventory Report', desc: 'Stock levels and low-stock alerts',         icon: BarChart3,   color: '#ef4444' },
 ];
 
-const formatTypes = [
-  { value: 'pdf', label: 'PDF', description: 'Portable Document Format', icon: '📄' },
-  { value: 'excel', label: 'Excel', description: 'Microsoft Excel Spreadsheet', icon: '📊' },
-  { value: 'csv', label: 'CSV', description: 'Comma-Separated Values', icon: '📋' },
+const FORMAT_TYPES = [
+  { value: 'pdf',   label: 'PDF',   desc: 'Portable Document Format', emoji: '📄' },
+  { value: 'excel', label: 'Excel', desc: 'Microsoft Excel Spreadsheet', emoji: '📊' },
+  { value: 'csv',   label: 'CSV',   desc: 'Comma-Separated Values', emoji: '📋' },
 ];
 
 export default function ReportsPage() {
   const [selectedReport, setSelectedReport] = useState('sales');
   const [selectedFormat, setSelectedFormat] = useState('pdf');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-
-  // Set default date range (last 30 days)
-  React.useEffect(() => {
-    const today = new Date();
-    const thirtyDaysAgo = new Date(today);
-    thirtyDaysAgo.setDate(today.getDate() - 30);
-    
-    setEndDate(today.toISOString().split('T')[0]);
-    setStartDate(thirtyDaysAgo.toISOString().split('T')[0]);
-  }, []);
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().split('T')[0];
+  });
+  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState<string | null>(null);
+  const [success, setSuccess]   = useState<string | null>(null);
 
   const handleGenerateReport = async () => {
     try {
-      setLoading(true);
-      setError(null);
-      setSuccess(null);
-
-      // Build query parameters
-      const params = new URLSearchParams({
-        type: selectedReport,
-        format: selectedFormat,
-      });
-
+      setLoading(true); setError(null); setSuccess(null);
+      const params = new URLSearchParams({ type: selectedReport, format: selectedFormat });
       if (startDate) params.append('startDate', startDate);
-      if (endDate) params.append('endDate', endDate);
+      if (endDate)   params.append('endDate', endDate);
 
-      // Call API
-      const response = await api.get<Blob>(`/admin/reports/generate?${params.toString()}`, {
-        responseType: 'blob',
-      });
-
-      // Create download link
-      const blob = new Blob([response.data as BlobPart], {
-        type: response.headers['content-type'] || 'application/octet-stream',
-      });
-      const url = window.URL.createObjectURL(blob);
+      const response = await api.get<Blob>(`/admin/reports/generate?${params.toString()}`, { responseType: 'blob' });
+      const blob = new Blob([response.data as BlobPart], { type: response.headers['content-type'] || 'application/octet-stream' });
+      const url  = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = url;
-      
-      // Extract filename from Content-Disposition header or create default
-      const contentDisposition = response.headers['content-disposition'];
+      link.href  = url;
+      const cd   = response.headers['content-disposition'];
       let filename = `${selectedReport}-report-${startDate}.${selectedFormat}`;
-      if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/i);
-        if (filenameMatch) {
-          filename = filenameMatch[1];
-        }
-      }
-      
+      if (cd) { const m = cd.match(/filename="?(.+)"?/i); if (m) filename = m[1]; }
       link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      document.body.appendChild(link); link.click(); document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-
-      setSuccess(`Report generated successfully! ${filename}`);
+      setSuccess(`Report downloaded: ${filename}`);
     } catch (err: any) {
-      console.error('Report generation error:', err);
-      setError(err.response?.data?.message || 'Failed to generate report. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+      setError(err.response?.data?.message || 'Failed to generate report.');
+    } finally { setLoading(false); }
   };
 
-  const selectedReportInfo = reportTypes.find(r => r.value === selectedReport);
+  const selectedReportInfo = REPORT_TYPES.find(r => r.value === selectedReport);
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
-          <p className="text-gray-600 mt-1">Generate and download business reports in various formats</p>
+          <h1 className="section-title">Reports</h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+            Generate and download business reports in various formats
+          </p>
         </div>
-        <FileText className="w-8 h-8 text-blue-600" />
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'var(--accent-50)' }}>
+          <FileText className="w-5 h-5" style={{ color: 'var(--accent-600)' }} />
+        </div>
       </div>
 
-      {/* Success Message */}
+      {/* Alerts */}
       {success && (
-        <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center gap-2">
-          <Download className="w-5 h-5" />
-          <span>{success}</span>
+        <div className="alert alert-success">
+          <Download className="w-4 h-4 shrink-0" /><span>{success}</span>
         </div>
       )}
-
-      {/* Error Message */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
-          {error}
-        </div>
-      )}
+      {error && <div className="alert alert-error"><span>{error}</span></div>}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Report Selection */}
+        {/* Left: config */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Report Type Selection */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Select Report Type</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {reportTypes.map((report) => {
-                const Icon = report.icon;
-                return (
-                  <button
-                    key={report.value}
-                    onClick={() => setSelectedReport(report.value)}
-                    className={`
-                      p-4 rounded-lg border-2 transition-all text-left
-                      ${selectedReport === report.value
-                        ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                      }
-                    `}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className={`p-2 rounded-lg ${report.color}`}>
-                        <Icon className="w-5 h-5" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900 mb-1">{report.label}</h3>
-                        <p className="text-sm text-gray-600">{report.description}</p>
-                      </div>
-                      {selectedReport === report.value && (
-                        <div className="text-blue-600">
-                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Format Selection */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Export Format</h2>
-            <div className="grid grid-cols-3 gap-4">
-              {formatTypes.map((format) => (
-                <button
-                  key={format.value}
-                  onClick={() => setSelectedFormat(format.value)}
-                  className={`
-                    p-4 rounded-lg border-2 transition-all
-                    ${selectedFormat === format.value
-                      ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                    }
-                  `}
-                >
-                  <div className="text-center">
-                    <div className="text-3xl mb-2">{format.icon}</div>
-                    <h3 className="font-semibold text-gray-900 mb-1">{format.label}</h3>
-                    <p className="text-xs text-gray-600">{format.description}</p>
+          {/* Report type */}
+          <div className="card p-6">
+            <h2 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Select Report Type</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {REPORT_TYPES.map(({ value, label, desc, icon: Icon, color }) => (
+                <button key={value} onClick={() => setSelectedReport(value)}
+                  className={`p-4 rounded-xl border-2 text-left transition-all flex items-start gap-3 ${
+                    selectedReport === value
+                      ? 'border-[var(--accent-500)] bg-[var(--accent-50)]'
+                      : 'border-[var(--border)] hover:border-[var(--border-accent)]'
+                  }`}>
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ background: `${color}1a` }}>
+                    <Icon className="w-4 h-4" style={{ color }} />
                   </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{label}</p>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{desc}</p>
+                  </div>
+                  {selectedReport === value && <CheckCircle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: 'var(--accent-600)' }} />}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Date Range Selection */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <Calendar className="w-5 h-5" />
-              Date Range (Optional)
+          {/* Format */}
+          <div className="card p-6">
+            <h2 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Export Format</h2>
+            <div className="grid grid-cols-3 gap-3">
+              {FORMAT_TYPES.map(({ value, label, desc, emoji }) => (
+                <button key={value} onClick={() => setSelectedFormat(value)}
+                  className={`p-4 rounded-xl border-2 text-center transition-all ${
+                    selectedFormat === value
+                      ? 'border-[var(--accent-500)] bg-[var(--accent-50)]'
+                      : 'border-[var(--border)] hover:border-[var(--border-accent)]'
+                  }`}>
+                  <div className="text-3xl mb-2">{emoji}</div>
+                  <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{label}</p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Date range */}
+          <div className="card p-6">
+            <h2 className="font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+              <Calendar className="w-4 h-4" style={{ color: 'var(--accent-600)' }} />
+              Date Range
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="input-group">
+                <label className="label">Start Date</label>
+                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="input" />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  End Date
-                </label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+              <div className="input-group">
+                <label className="label">End Date</label>
+                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="input" />
               </div>
             </div>
-            <p className="text-sm text-gray-500 mt-2">
-              Leave empty to include all data
-            </p>
+            <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>Leave empty to include all data</p>
           </div>
         </div>
 
-        {/* Right Column - Preview & Generate */}
-        <div className="space-y-6">
-          {/* Preview Card */}
-          <div className="bg-white rounded-lg shadow p-6 sticky top-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Report Preview</h2>
-            
+        {/* Right: preview */}
+        <div className="space-y-4">
+          <div className="card p-6 sticky top-6">
+            <h2 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Report Preview</h2>
             {selectedReportInfo && (
               <div className="space-y-4">
-                <div className={`p-4 rounded-lg ${selectedReportInfo.color}`}>
-                  {React.createElement(selectedReportInfo.icon, { className: 'w-8 h-8 mx-auto' })}
+                <div className="w-14 h-14 rounded-xl flex items-center justify-center"
+                  style={{ background: `${selectedReportInfo.color}1a` }}>
+                  {React.createElement(selectedReportInfo.icon, { className: 'w-7 h-7', style: { color: selectedReportInfo.color } })}
                 </div>
-                
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-1">
-                    {selectedReportInfo.label}
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    {selectedReportInfo.description}
-                  </p>
+                  <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{selectedReportInfo.label}</p>
+                  <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>{selectedReportInfo.desc}</p>
                 </div>
-
-                <div className="border-t pt-4 space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Format:</span>
-                    <span className="font-medium text-gray-900">{selectedFormat.toUpperCase()}</span>
-                  </div>
-                  {startDate && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">From:</span>
-                      <span className="font-medium text-gray-900">
-                        {new Date(startDate).toLocaleDateString()}
-                      </span>
+                <div className="border-t border-[var(--border)] pt-4 space-y-2 text-sm">
+                  {[
+                    ['Format', selectedFormat.toUpperCase()],
+                    startDate ? ['From', new Date(startDate).toLocaleDateString()] : null,
+                    endDate   ? ['To',   new Date(endDate).toLocaleDateString()]   : null,
+                  ].filter(Boolean).map(([k, v]) => (
+                    <div key={k} className="flex justify-between">
+                      <span style={{ color: 'var(--text-secondary)' }}>{k}</span>
+                      <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{v}</span>
                     </div>
-                  )}
-                  {endDate && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">To:</span>
-                      <span className="font-medium text-gray-900">
-                        {new Date(endDate).toLocaleDateString()}
-                      </span>
-                    </div>
-                  )}
+                  ))}
                 </div>
-
-                <button
-                  onClick={handleGenerateReport}
-                  disabled={loading}
-                  className="w-full mt-6 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 font-medium"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="w-5 h-5" />
-                      Generate Report
-                    </>
-                  )}
+                <button onClick={handleGenerateReport} disabled={loading} className="btn btn-primary btn-full">
+                  {loading ? <><span className="spinner" /> Generating…</> : <><Download className="w-4 h-4" /> Generate Report</>}
                 </button>
               </div>
             )}
           </div>
 
-          {/* Quick Stats */}
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg shadow p-6">
-            <h3 className="font-semibold text-gray-900 mb-3">📊 Report Features</h3>
-            <ul className="space-y-2 text-sm text-gray-700">
-              <li className="flex items-start gap-2">
-                <span className="text-green-600 mt-0.5">✓</span>
-                <span>Real-time data from database</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-green-600 mt-0.5">✓</span>
-                <span>Summary statistics included</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-green-600 mt-0.5">✓</span>
-                <span>Detailed data tables</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-green-600 mt-0.5">✓</span>
-                <span>Professional formatting</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-green-600 mt-0.5">✓</span>
-                <span>Instant download</span>
-              </li>
+          {/* Features */}
+          <div className="card p-5" style={{ background: 'var(--bg-secondary)' }}>
+            <p className="font-semibold text-sm mb-3" style={{ color: 'var(--text-primary)' }}>📊 Report Features</p>
+            <ul className="space-y-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
+              {[
+                'Real-time data from database',
+                'Summary statistics included',
+                'Detailed data tables',
+                'Professional formatting',
+                'Instant download',
+              ].map(f => (
+                <li key={f} className="flex items-center gap-2">
+                  <CheckCircle className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--accent-500)' }} />
+                  {f}
+                </li>
+              ))}
             </ul>
           </div>
         </div>
       </div>
 
-      {/* Info Section */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
-          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-          </svg>
-          Report Information
-        </h3>
-        <div className="text-sm text-blue-800 space-y-1">
-          <p>• Reports are generated in real-time from your latest data</p>
-          <p>• PDF reports include charts and professional formatting</p>
-          <p>• Excel reports contain multiple sheets with summary and details</p>
-          <p>• CSV reports are ideal for further data analysis</p>
-          <p>• Date filters are optional - leave empty to include all data</p>
+      {/* Info */}
+      <div className="alert alert-info">
+        <div className="text-xs space-y-1">
+          <p className="font-semibold mb-1">Report Information</p>
+          {[
+            'Reports are generated in real-time from your latest data',
+            'PDF reports include charts and professional formatting',
+            'Excel reports contain multiple sheets with summary and details',
+            'CSV reports are ideal for further data analysis',
+            'Date filters are optional — leave empty to include all data',
+          ].map(t => <p key={t}>• {t}</p>)}
         </div>
       </div>
     </div>

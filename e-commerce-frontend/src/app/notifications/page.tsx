@@ -1,309 +1,168 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  Bell, 
-  CheckCheck, 
-  Trash2, 
-  Filter,
-  Clock,
-  ChevronLeft,
-  AlertCircle
+import {
+  Bell, CheckCheck, Trash2, Clock, ChevronLeft, AlertCircle, RefreshCw,
 } from 'lucide-react';
 
 interface Notification {
-  id: number;
-  userId: number;
-  type: string;
-  title: string;
-  message: string;
-  read: boolean;
-  urgent: boolean;
-  actionUrl: string | null;
-  data: any;
-  createdAt: string;
-  readAt: string | null;
+  id: number; userId: number; type: string; title: string; message: string;
+  read: boolean; urgent: boolean; actionUrl: string | null; data: any;
+  createdAt: string; readAt: string | null;
 }
 
-interface NotificationsPageData {
-  notifications: Notification[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
+interface PageData {
+  notifications: Notification[]; total: number;
+  page: number; limit: number; totalPages: number;
 }
+
+const TYPE_EMOJI: Record<string, string> = {
+  order: '📦', payment: '💳', verification: '✅', seller: '🏪',
+  payout: '💰', product: '🛍️', system: '⚙️',
+};
+
+function timeAgo(ts: string): string {
+  const diff = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
+  if (diff < 60) return 'Just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+  return new Date(ts).toLocaleDateString();
+}
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002/api/v1';
 
 export default function NotificationsPage() {
   const router = useRouter();
-  const [notificationsData, setNotificationsData] = useState<NotificationsPageData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'unread' | 'read'>('all');
+  const [data, setData]           = useState<PageData | null>(null);
+  const [loading, setLoading]     = useState(true);
+  const [filter, setFilter]       = useState<'all' | 'unread' | 'read'>('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]         = useState<string | null>(null);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002/api/v1';
-
-  const fetchNotifications = async (page: number = 1) => {
+  const fetchNotifications = async (page = 1) => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/notifications/my`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
+      const res = await fetch(`${API_URL}/notifications/my`, {
+        credentials: 'include', headers: { 'Content-Type': 'application/json' },
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch notifications');
-      }
-
-      const data: NotificationsPageData = await response.json();
-      setNotificationsData(data);
+      if (!res.ok) throw new Error('Failed to fetch notifications');
+      setData(await res.json());
       setError(null);
-    } catch (err) {
-      console.error('Error fetching notifications:', err);
-      setError('Failed to load notifications');
-    } finally {
-      setLoading(false);
-    }
+    } catch { setError('Failed to load notifications'); }
+    finally { setLoading(false); }
   };
 
-  useEffect(() => {
+  useEffect(() => { fetchNotifications(currentPage); }, [currentPage]);
+
+  const markAsRead = async (id: number) => {
+    await fetch(`${API_URL}/notifications/${id}/read`, { method: 'POST', credentials: 'include' });
+    setData(prev => prev ? {
+      ...prev,
+      notifications: prev.notifications.map(n =>
+        n.id === id ? { ...n, read: true, readAt: new Date().toISOString() } : n
+      ),
+    } : prev);
+  };
+
+  const markAllAsRead = async () => {
+    await fetch(`${API_URL}/notifications/my/read-all`, { method: 'POST', credentials: 'include' });
     fetchNotifications(currentPage);
-  }, [currentPage]);
-
-  const handleMarkAsRead = async (notificationId: number) => {
-    try {
-      const response = await fetch(`${API_URL}/notifications/${notificationId}/read`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-      });
-
-      if (response.ok) {
-        // Update local state
-        setNotificationsData(prev => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            notifications: prev.notifications.map(n =>
-              n.id === notificationId ? { ...n, read: true, readAt: new Date().toISOString() } : n
-            ),
-          };
-        });
-      }
-    } catch (err) {
-      console.error('Error marking notification as read:', err);
-    }
   };
 
-  const handleMarkAllAsRead = async () => {
-    try {
-      const response = await fetch(`${API_URL}/notifications/my/read-all`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-      });
-
-      if (response.ok) {
-        // Refresh notifications
-        fetchNotifications(currentPage);
-      }
-    } catch (err) {
-      console.error('Error marking all as read:', err);
-    }
+  const deleteOne = async (id: number) => {
+    await fetch(`${API_URL}/notifications/${id}/delete`, { method: 'POST', credentials: 'include' });
+    setData(prev => prev ? {
+      ...prev, total: prev.total - 1,
+      notifications: prev.notifications.filter(n => n.id !== id),
+    } : prev);
   };
 
-  const handleDelete = async (notificationId: number) => {
-    try {
-      const response = await fetch(`${API_URL}/notifications/${notificationId}/delete`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-      });
-
-      if (response.ok) {
-        // Remove from local state
-        setNotificationsData(prev => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            notifications: prev.notifications.filter(n => n.id !== notificationId),
-            total: prev.total - 1,
-          };
-        });
-      }
-    } catch (err) {
-      console.error('Error deleting notification:', err);
-    }
+  const deleteRead = async () => {
+    await fetch(`${API_URL}/notifications/my/delete-read`, { method: 'POST', credentials: 'include' });
+    fetchNotifications(currentPage);
   };
 
-  const handleDeleteRead = async () => {
-    try {
-      const response = await fetch(`${API_URL}/notifications/my/delete-read`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-      });
-
-      if (response.ok) {
-        // Refresh notifications
-        fetchNotifications(currentPage);
-      }
-    } catch (err) {
-      console.error('Error deleting read notifications:', err);
-    }
+  const onClickNotification = (n: Notification) => {
+    if (!n.read) markAsRead(n.id);
+    if (n.actionUrl) router.push(n.actionUrl);
   };
 
-  const handleNotificationClick = (notification: Notification) => {
-    if (!notification.read) {
-      handleMarkAsRead(notification.id);
-    }
-
-    if (notification.actionUrl) {
-      router.push(notification.actionUrl);
-    }
-  };
-
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'order':
-        return '📦';
-      case 'payment':
-        return '💳';
-      case 'verification':
-        return '✅';
-      case 'seller':
-        return '🏪';
-      case 'payout':
-        return '💰';
-      case 'product':
-        return '🛍️';
-      case 'system':
-        return '⚙️';
-      default:
-        return '🔔';
-    }
-  };
-
-  const formatTimeAgo = (timestamp: string) => {
-    const now = new Date();
-    const diffInSeconds = Math.floor((now.getTime() - new Date(timestamp).getTime()) / 1000);
-    
-    if (diffInSeconds < 60) return 'Just now';
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
-    return new Date(timestamp).toLocaleDateString();
-  };
-
-  const filteredNotifications = notificationsData?.notifications.filter(n => {
+  const unreadCount = data?.notifications.filter(n => !n.read).length ?? 0;
+  const filtered = (data?.notifications ?? []).filter(n => {
     if (filter === 'unread') return !n.read;
-    if (filter === 'read') return n.read;
+    if (filter === 'read')   return n.read;
     return true;
-  }) || [];
+  });
 
-  const unreadCount = notificationsData?.notifications.filter(n => !n.read).length || 0;
-
-  if (loading && !notificationsData) {
+  if (loading && !data) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading notifications...</p>
-        </div>
+      <div className="page-wrapper flex items-center justify-center">
+        <span className="spinner" style={{ width: '3rem', height: '3rem', borderWidth: '3px' }} />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <AlertCircle className="h-12 w-12 text-red-500 mx-auto" />
-          <p className="mt-4 text-red-600 font-semibold">{error}</p>
-          <button
-            onClick={() => fetchNotifications(currentPage)}
-            className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-          >
-            Retry
-          </button>
+      <div className="page-wrapper flex items-center justify-center p-6">
+        <div className="card p-8 max-w-sm text-center">
+          <AlertCircle className="w-10 h-10 mx-auto mb-3 text-red-500" />
+          <p className="text-sm mb-4 text-red-600">{error}</p>
+          <button onClick={() => fetchNotifications(currentPage)} className="btn btn-primary">Retry</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => router.back()}
-                className="p-2 hover:bg-gray-100 rounded-lg transition"
-              >
-                <ChevronLeft className="h-6 w-6 text-gray-600" />
+    <div className="page-wrapper">
+      <div className="page-header">
+        <div className="container-app">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <button onClick={() => router.back()} className="btn btn-icon btn-ghost">
+                <ChevronLeft className="w-5 h-5" />
               </button>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-                  <Bell className="h-8 w-8 mr-3 text-blue-600" />
-                  Notifications
-                </h1>
-                <p className="text-sm text-gray-500 mt-1">
-                  {notificationsData?.total || 0} total notifications
-                  {unreadCount > 0 && ` • ${unreadCount} unread`}
-                </p>
+              <div className="flex items-center gap-2">
+                <Bell className="w-5 h-5" style={{ color: 'var(--accent-600)' }} />
+                <div>
+                  <h1 className="section-title">Notifications</h1>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    {data?.total ?? 0} total{unreadCount > 0 ? ` · ${unreadCount} unread` : ''}
+                  </p>
+                </div>
               </div>
             </div>
-
-            <div className="flex items-center space-x-3">
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => fetchNotifications(currentPage)} disabled={loading} className="btn btn-outline btn-sm">
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              </button>
               {unreadCount > 0 && (
-                <button
-                  onClick={handleMarkAllAsRead}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center space-x-2"
-                >
-                  <CheckCheck className="h-4 w-4" />
-                  <span>Mark All Read</span>
+                <button onClick={markAllAsRead} className="btn btn-outline btn-sm">
+                  <CheckCheck className="w-3.5 h-3.5" /> Mark All Read
                 </button>
               )}
-              <button
-                onClick={handleDeleteRead}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex items-center space-x-2"
-              >
-                <Trash2 className="h-4 w-4" />
-                <span>Delete Read</span>
+              <button onClick={deleteRead} className="btn btn-sm"
+                style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                <Trash2 className="w-3.5 h-3.5" /> Delete Read
               </button>
             </div>
           </div>
 
-          {/* Filter Tabs */}
-          <div className="flex space-x-4 mt-6 border-b border-gray-200">
-            {(['all', 'unread', 'read'] as const).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`px-4 py-2 font-medium transition ${
+          {/* Filter tabs */}
+          <div className="flex gap-0 mt-4 border-b border-[var(--border)]">
+            {(['all', 'unread', 'read'] as const).map(f => (
+              <button key={f} onClick={() => setFilter(f)}
+                className={`px-4 py-2 text-sm font-medium transition-colors ${
                   filter === f
-                    ? 'text-blue-600 border-b-2 border-blue-600'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'border-b-2 border-[var(--accent-500)]'
+                    : 'hover:bg-[var(--bg-secondary)]'
                 }`}
-              >
+                style={{ color: filter === f ? 'var(--accent-600)' : 'var(--text-secondary)' }}>
                 {f.charAt(0).toUpperCase() + f.slice(1)}
                 {f === 'unread' && unreadCount > 0 && (
-                  <span className="ml-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
-                    {unreadCount}
-                  </span>
+                  <span className="ml-1.5 badge badge-red" style={{ fontSize: '0.65rem' }}>{unreadCount}</span>
                 )}
               </button>
             ))}
@@ -311,84 +170,59 @@ export default function NotificationsPage() {
         </div>
       </div>
 
-      {/* Notifications List */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {filteredNotifications.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-            <Bell className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              No {filter !== 'all' && filter} notifications
+      <div className="container-app py-8">
+        {filtered.length === 0 ? (
+          <div className="card p-12 text-center">
+            <Bell className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--text-muted)' }} />
+            <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+              No {filter !== 'all' ? filter + ' ' : ''}notifications
             </h3>
-            <p className="text-gray-500">
-              {filter === 'unread' 
-                ? "You're all caught up! No unread notifications."
-                : "No notifications to display."}
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              {filter === 'unread' ? "You're all caught up!" : 'No notifications to display.'}
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {filteredNotifications.map((notification) => (
+          <div className="space-y-3">
+            {filtered.map(n => (
               <div
-                key={notification.id}
-                onClick={() => handleNotificationClick(notification)}
-                className={`bg-white rounded-lg shadow-sm p-6 transition-all cursor-pointer hover:shadow-md ${
-                  !notification.read ? 'border-l-4 border-blue-600 bg-blue-50' : ''
-                } ${notification.urgent ? 'border-l-4 border-red-500' : ''}`}
+                key={n.id}
+                onClick={() => onClickNotification(n)}
+                className={`card p-5 cursor-pointer transition-all hover:shadow-md ${
+                  !n.read ? 'border-l-4' : ''
+                } ${n.urgent ? 'border-l-red-500' : !n.read ? 'border-l-[var(--accent-500)]' : ''}`}
+                style={!n.read && !n.urgent ? { borderLeftColor: 'var(--accent-500)' } : {}}
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start space-x-4 flex-1">
-                    <div className="text-4xl">{getNotificationIcon(notification.type)}</div>
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-1">
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          {notification.title}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-4 flex-1 min-w-0">
+                    <span className="text-2xl shrink-0">{TYPE_EMOJI[n.type] || '🔔'}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <h3 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
+                          {n.title}
                         </h3>
-                        {!notification.read && (
-                          <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full">
-                            New
-                          </span>
-                        )}
-                        {notification.urgent && (
-                          <span className="bg-red-600 text-white text-xs px-2 py-0.5 rounded-full">
-                            Urgent
-                          </span>
-                        )}
+                        {!n.read && <span className="badge badge-green">New</span>}
+                        {n.urgent && <span className="badge badge-red">Urgent</span>}
                       </div>
-                      <p className="text-gray-700 mb-2">{notification.message}</p>
-                      <div className="flex items-center space-x-4 text-sm text-gray-500">
-                        <span className="flex items-center space-x-1">
-                          <Clock className="h-4 w-4" />
-                          <span>{formatTimeAgo(notification.createdAt)}</span>
+                      <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{n.message}</p>
+                      <div className="flex flex-wrap items-center gap-3 mt-2">
+                        <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+                          <Clock className="w-3 h-3" /> {timeAgo(n.createdAt)}
                         </span>
-                        <span className="px-2 py-0.5 bg-gray-100 rounded text-xs font-medium">
-                          {notification.type}
-                        </span>
+                        <span className="badge badge-gray text-xs">{n.type}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-2 ml-4">
-                    {!notification.read && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleMarkAsRead(notification.id);
-                        }}
-                        className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition"
-                        title="Mark as read"
-                      >
-                        <CheckCheck className="h-5 w-5" />
+                  <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                    {!n.read && (
+                      <button onClick={() => markAsRead(n.id)} className="btn btn-icon btn-ghost"
+                        title="Mark as read">
+                        <CheckCheck className="w-4 h-4" style={{ color: 'var(--accent-600)' }} />
                       </button>
                     )}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(notification.id);
-                      }}
-                      className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition"
-                      title="Delete"
-                    >
-                      <Trash2 className="h-5 w-5" />
+                    <button onClick={() => deleteOne(n.id)} className="btn btn-icon btn-ghost text-red-500"
+                      title="Delete">
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -398,25 +232,15 @@ export default function NotificationsPage() {
         )}
 
         {/* Pagination */}
-        {notificationsData && notificationsData.totalPages > 1 && (
-          <div className="flex items-center justify-center space-x-2 mt-8">
-            <button
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-              disabled={currentPage === 1}
-              className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Previous
-            </button>
-            <span className="text-gray-700">
-              Page {currentPage} of {notificationsData.totalPages}
+        {data && data.totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-8">
+            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+              className="btn btn-outline btn-sm">← Previous</button>
+            <span className="text-sm px-3" style={{ color: 'var(--text-secondary)' }}>
+              {currentPage} / {data.totalPages}
             </span>
-            <button
-              onClick={() => setCurrentPage(prev => Math.min(notificationsData.totalPages, prev + 1))}
-              disabled={currentPage === notificationsData.totalPages}
-              className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Next
-            </button>
+            <button onClick={() => setCurrentPage(p => Math.min(data.totalPages, p + 1))} disabled={currentPage === data.totalPages}
+              className="btn btn-outline btn-sm">Next →</button>
           </div>
         )}
       </div>

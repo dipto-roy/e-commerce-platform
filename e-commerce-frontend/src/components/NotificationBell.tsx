@@ -8,207 +8,129 @@ interface NotificationBellProps {
   showDropdown?: boolean;
 }
 
-const NotificationBell: React.FC<NotificationBellProps> = ({ 
-  className = "", 
-  showDropdown = true 
-}) => {
+const TYPE_EMOJI: Record<string, string> = {
+  order: '📦', payment: '💳', verification: '✅', payout: '💰', product: '🛍️', system: '⚙️',
+};
+
+function timeAgo(timestamp: Date): string {
+  const diff = Math.floor((Date.now() - new Date(timestamp).getTime()) / 1000);
+  if (diff < 60) return 'Just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
+const NotificationBell: React.FC<NotificationBellProps> = ({ className = '', showDropdown = true }) => {
   const { notifications, unreadCount, markAsRead, clearNotification, isConnected } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Debug: Log when component mounts and notification changes
   useEffect(() => {
-    console.log('🔔 NotificationBell mounted/updated:', {
-      notificationsCount: notifications.length,
-      unreadCount,
-      isConnected,
-      className
-    });
-  }, [notifications.length, unreadCount, isConnected]);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
+    const handle = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setIsOpen(false);
     };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
   }, []);
 
   const handleNotificationClick = (notification: any) => {
     markAsRead(notification.id);
     setIsOpen(false);
-    
-    // Navigate to relevant page based on notification type and actionUrl
-    if (notification.actionUrl) {
-      window.location.href = notification.actionUrl;
-    }
-  };
-
-  const formatTimeAgo = (timestamp: Date) => {
-    const now = new Date();
-    const diffInSeconds = Math.floor((now.getTime() - new Date(timestamp).getTime()) / 1000);
-    
-    if (diffInSeconds < 60) return 'Just now';
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-    return `${Math.floor(diffInSeconds / 86400)}d ago`;
-  };
-
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'order':
-        return '📦';
-      case 'payment':
-        return '💳';
-      case 'verification':
-        return '✅';
-      case 'payout':
-        return '💰';
-      case 'product':
-        return '🛍️';
-      case 'system':
-        return '⚙️';
-      default:
-        return '🔔';
-    }
+    if (notification.actionUrl) window.location.href = notification.actionUrl;
   };
 
   return (
-    <div 
-      className={`relative ${className}`} 
-      ref={dropdownRef}
-      data-testid="notification-bell-container"
-    >
+    <div className={`relative ${className}`} ref={dropdownRef}>
       <button
         onClick={() => showDropdown && setIsOpen(!isOpen)}
-        className={`relative p-2 rounded-full transition-all duration-200 ${
-          isConnected 
-            ? 'text-gray-700 hover:text-blue-600 hover:bg-blue-50' 
-            : 'text-gray-400'
-        } ${unreadCount > 0 ? 'animate-pulse' : ''}`}
+        className="relative p-2 rounded-full transition-colors hover:bg-[var(--bg-secondary)]"
         title={`${unreadCount} unread notifications`}
-        data-testid="notification-bell-button"
       >
-        <Bell 
-          className={`h-6 w-6 ${unreadCount > 0 ? 'text-blue-600' : ''}`} 
-        />
-        
-        {/* Connection status indicator */}
-        <div 
-          className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ${
-            isConnected ? 'bg-green-400' : 'bg-red-400'
-          }`}
-          title={isConnected ? 'Connected to notifications' : 'Disconnected'}
-        />
-        
-        {/* Unread count badge */}
+        <Bell className="w-5 h-5" style={{ color: unreadCount > 0 ? 'var(--accent-600)' : 'var(--text-secondary)' }} />
+
+        {/* Connection dot */}
+        <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white"
+          style={{ background: isConnected ? '#10b981' : '#ef4444' }}
+          title={isConnected ? 'Connected' : 'Disconnected'} />
+
+        {/* Unread badge */}
         {unreadCount > 0 && (
-          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center animate-bounce">
+          <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-0.5">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </button>
 
-      {/* Notification Dropdown */}
       {showDropdown && isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-96 overflow-hidden">
+        <div className="absolute right-0 mt-2 w-80 card overflow-hidden shadow-xl z-50">
           {/* Header */}
-          <div className="p-4 border-b border-gray-200 bg-gray-50">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Notifications
-              </h3>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-5 w-5" />
-              </button>
+          <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between"
+            style={{ background: 'var(--bg-secondary)' }}>
+            <div>
+              <h3 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>Notifications</h3>
+              {unreadCount > 0 && (
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  {unreadCount} unread
+                </p>
+              )}
             </div>
-            {unreadCount > 0 && (
-              <p className="text-sm text-gray-600 mt-1">
-                {unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}
-              </p>
-            )}
+            <button onClick={() => setIsOpen(false)} className="btn btn-icon btn-ghost">
+              <X className="w-4 h-4" />
+            </button>
           </div>
 
-          {/* Notifications List */}
-          <div className="max-h-80 overflow-y-auto">
+          {/* List */}
+          <div className="max-h-72 overflow-y-auto">
             {notifications.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
-                <Bell className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <p>No notifications yet</p>
-                <p className="text-sm mt-1">We'll notify you when something important happens</p>
+              <div className="p-8 text-center">
+                <Bell className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--text-muted)' }} />
+                <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>No notifications</p>
+                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                  We'll notify you when something happens
+                </p>
               </div>
             ) : (
-              notifications.slice(0, 10).map((notification) => (
-                <div
-                  key={notification.id}
-                  className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${
-                    !notification.read ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
-                  }`}
-                  onClick={() => handleNotificationClick(notification)}
-                >
-                  <div className="flex items-start space-x-3">
-                    <span className="text-2xl mt-1 flex-shrink-0">
-                      {getNotificationIcon(notification.type)}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <p className={`text-sm font-medium ${
-                          !notification.read ? 'text-gray-900' : 'text-gray-700'
-                        }`}>
-                          {notification.title}
+              <div className="divide-y divide-[var(--border)]">
+                {notifications.slice(0, 10).map(n => (
+                  <div key={n.id}
+                    onClick={() => handleNotificationClick(n)}
+                    className={`px-4 py-3 cursor-pointer transition-colors hover:bg-[var(--bg-secondary)] ${
+                      !n.read ? 'border-l-4 border-l-[var(--accent-500)]' : ''
+                    }`}
+                    style={!n.read ? { background: 'var(--accent-50)' } : {}}>
+                    <div className="flex items-start gap-3">
+                      <span className="text-xl shrink-0">{TYPE_EMOJI[n.type] || '🔔'}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+                            {n.title}
+                          </p>
+                          <button onClick={e => { e.stopPropagation(); clearNotification(n.id); }}
+                            className="shrink-0 text-[var(--text-muted)] hover:text-red-500 transition-colors">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <p className="text-xs mt-0.5 line-clamp-2" style={{ color: 'var(--text-secondary)' }}>
+                          {n.message}
                         </p>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            clearNotification(notification.id);
-                          }}
-                          className="text-gray-400 hover:text-gray-600 ml-2"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                      <p className={`text-sm mt-1 ${
-                        !notification.read ? 'text-gray-700' : 'text-gray-500'
-                      }`}>
-                        {notification.message}
-                      </p>
-                      <div className="flex items-center justify-between mt-2">
-                        <span className="text-xs text-gray-400">
-                          {formatTimeAgo(notification.timestamp)}
-                        </span>
-                        {notification.data?.urgent && (
-                          <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
-                            Urgent
-                          </span>
-                        )}
+                        <div className="flex items-center justify-between mt-1.5">
+                          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{timeAgo(n.timestamp)}</span>
+                          {n.data?.urgent && <span className="badge badge-red text-[10px]">Urgent</span>}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))
+                ))}
+              </div>
             )}
           </div>
 
           {/* Footer */}
           {notifications.length > 0 && (
-            <div className="p-3 border-t border-gray-200 bg-gray-50">
-              <button
-                onClick={() => {
-                  setIsOpen(false);
-                  // Navigate to full notifications page if you have one
-                  window.location.href = '/notifications';
-                }}
-                className="w-full text-center text-sm text-blue-600 hover:text-blue-800 font-medium"
-              >
+            <div className="px-4 py-2.5 border-t border-[var(--border)] text-center"
+              style={{ background: 'var(--bg-secondary)' }}>
+              <button onClick={() => { setIsOpen(false); window.location.href = '/notifications'; }}
+                className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-600)' }}>
                 View All Notifications
               </button>
             </div>

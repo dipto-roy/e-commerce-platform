@@ -2,17 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  Package, 
-  Clock, 
-  CheckCircle, 
-  XCircle, 
-  Truck, 
-  Calendar,
-  DollarSign,
-  Eye,
-  Filter,
-  RefreshCw
+import Link from 'next/link';
+import {
+  Package, Clock, CheckCircle, XCircle, Truck,
+  Calendar, DollarSign, Eye, Filter, RefreshCw,
 } from 'lucide-react';
 import { orderAPI } from '@/utils/api';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
@@ -28,53 +21,25 @@ interface Order {
     id: number;
     quantity: number;
     unitPriceSnapshot: string | number;
-    product: {
-      id: number;
-      name: string;
-      images: string[];
-    };
-    seller: {
-      id: number;
-      username: string;
-      fullName?: string;
-    };
+    product: { id: number; name: string; images: string[] };
+    seller: { id: number; username: string; fullName?: string };
   }>;
-  shippingAddress: {
-    fullName: string;
-    street: string;
-    city: string;
-    state: string;
-    zipCode: string;
-    country: string;
-  };
+  shippingAddress: { fullName: string; street: string; city: string; state: string; zipCode: string; country: string };
 }
 
-interface OrdersResponse {
-  orders: Order[];
-  total: number;
-  totalPages: number;
-}
+interface OrdersResponse { orders: Order[]; total: number; totalPages: number; }
 
-const statusIcons = {
-  pending: <Clock className="w-5 h-5 text-yellow-500" />,
-  processing: <Package className="w-5 h-5 text-blue-500" />,
-  shipped: <Truck className="w-5 h-5 text-purple-500" />,
-  delivered: <CheckCircle className="w-5 h-5 text-green-500" />,
-  cancelled: <XCircle className="w-5 h-5 text-red-500" />,
-};
-
-const statusColors = {
-  pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-  processing: 'bg-blue-100 text-blue-800 border-blue-200',
-  shipped: 'bg-purple-100 text-purple-800 border-purple-200',
-  delivered: 'bg-green-100 text-green-800 border-green-200',
-  cancelled: 'bg-red-100 text-red-800 border-red-200',
+const STATUS_MAP: Record<string, { label: string; badgeClass: string; icon: React.ReactNode }> = {
+  pending:    { label: 'Pending',    badgeClass: 'badge badge-yellow', icon: <Clock    className="w-3.5 h-3.5" /> },
+  processing: { label: 'Processing', badgeClass: 'badge badge-blue',   icon: <Package  className="w-3.5 h-3.5" /> },
+  shipped:    { label: 'Shipped',    badgeClass: 'badge badge-blue',   icon: <Truck    className="w-3.5 h-3.5" /> },
+  delivered:  { label: 'Delivered',  badgeClass: 'badge badge-green',  icon: <CheckCircle className="w-3.5 h-3.5" /> },
+  cancelled:  { label: 'Cancelled',  badgeClass: 'badge badge-red',    icon: <XCircle  className="w-3.5 h-3.5" /> },
 };
 
 export default function OrdersPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuthGuard();
-  
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -84,28 +49,21 @@ export default function OrdersPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchOrders = async (page: number = 1, status: string = '') => {
+  const fetchOrders = async (page = 1, status = '') => {
     try {
-      setLoading(page === 1);
-      setRefreshing(page > 1);
-      
+      setLoading(page === 1 && !refreshing);
+      setRefreshing(true);
       const response = await orderAPI.getUserOrders(page, 10);
       const data = response.data as OrdersResponse;
-      
       setOrders(data.orders || []);
       setTotalPages(data.totalPages || 1);
       setTotalOrders(data.total || 0);
       setCurrentPage(page);
       setError(null);
     } catch (err: any) {
-      console.error('Failed to fetch orders:', err);
-      
-      // Handle specific error cases
-      if (err.response?.status === 401) {
-        setError('You need to login to view your orders. Please login first.');
-      } else {
-        setError(err.response?.data?.message || 'Failed to load orders');
-      }
+      setError(err.response?.status === 401
+        ? 'Please log in to view your orders.'
+        : err.response?.data?.message || 'Failed to load orders');
       setOrders([]);
     } finally {
       setLoading(false);
@@ -113,321 +71,207 @@ export default function OrdersPage() {
     }
   };
 
-  useEffect(() => {
-    if (!authLoading && user) {
-      fetchOrders(1, statusFilter);
-    }
-  }, [authLoading, user, statusFilter]);
+  useEffect(() => { if (!authLoading && user) fetchOrders(1, statusFilter); }, [authLoading, user, statusFilter]);
 
-  const handleStatusFilter = (status: string) => {
-    setStatusFilter(status);
-    setCurrentPage(1);
-  };
-
-  const handlePageChange = (page: number) => {
-    fetchOrders(page, statusFilter);
-  };
-
-  const handleRefresh = () => {
-    fetchOrders(currentPage, statusFilter);
-  };
-
-  const formatPrice = (price: string | number): string => {
-    const numericPrice = typeof price === 'string' ? parseFloat(price) : price;
-    return `$${numericPrice.toFixed(2)}`;
-  };
-
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const getOrderItemsCount = (order: Order): number => {
-    return order.orderItems.reduce((total, item) => total + item.quantity, 0);
-  };
-
-  const viewOrder = (orderId: number) => {
-    router.push(`/orders/${orderId}/confirmation`);
-  };
+  const formatPrice = (p: string | number) => `$${parseFloat(String(p)).toFixed(2)}`;
+  const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  const getItemCount = (order: Order) => order.orderItems.reduce((t, i) => t + i.quantity, 0);
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      <div className="page-wrapper flex items-center justify-center">
+        <span className="spinner" style={{ width: '3rem', height: '3rem', borderWidth: '3px' }} />
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h2>
-          <p className="text-gray-600 mb-4">Please log in to view your orders.</p>
-          <button
-            onClick={() => router.push('/login')}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-          >
-            Go to Login
-          </button>
+      <div className="page-wrapper flex items-center justify-center p-6">
+        <div className="card p-8 max-w-sm text-center">
+          <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Access Denied</h2>
+          <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>Please log in to view your orders.</p>
+          <button onClick={() => router.push('/login')} className="btn btn-primary btn-full">Go to Login</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+    <div className="page-wrapper">
+      <div className="page-header">
+        <div className="container-app">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">My Orders</h1>
-              <p className="mt-2 text-gray-600">
-                Track and manage your orders ({totalOrders} total)
+              <h1 className="section-title">My Orders</h1>
+              <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+                {totalOrders} order{totalOrders !== 1 ? 's' : ''} total
               </p>
             </div>
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="mt-4 sm:mt-0 flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh
+            <button onClick={() => fetchOrders(currentPage, statusFilter)}
+              disabled={refreshing} className="btn btn-outline btn-sm self-start sm:self-auto">
+              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
             </button>
           </div>
         </div>
+      </div>
 
-        {/* Filters */}
-        <div className="mb-6 bg-white rounded-lg shadow p-4">
+      <div className="container-app py-8">
+        {/* Status filters */}
+        <div className="card p-4 mb-6">
           <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => handleStatusFilter('')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                statusFilter === '' 
-                  ? 'bg-blue-600 text-white border-blue-600' 
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              <Filter className="w-4 h-4 inline mr-2" />
-              All Orders
-            </button>
-            {Object.keys(statusIcons).map((status) => (
-              <button
-                key={status}
-                onClick={() => handleStatusFilter(status)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors capitalize ${
-                  statusFilter === status 
-                    ? 'bg-blue-600 text-white border-blue-600' 
-                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                {status}
+            {[{ value: '', label: 'All Orders' }, ...Object.entries(STATUS_MAP).map(([v, { label }]) => ({ value: v, label }))].map(({ value, label }) => (
+              <button key={value} onClick={() => { setStatusFilter(value); setCurrentPage(1); }}
+                className={`btn btn-sm ${statusFilter === value ? 'btn-primary' : 'btn-outline'}`}>
+                {value === '' && <Filter className="w-3.5 h-3.5" />}
+                {label}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Loading State */}
+        {/* Loading */}
         {loading && (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading your orders...</p>
-          </div>
-        )}
-
-        {/* Error State */}
-        {error && !loading && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-            <XCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-red-900 mb-2">Error Loading Orders</h3>
-            <p className="text-red-700 mb-4">{error}</p>
-            <div className="space-x-3">
-              {error.includes('login') ? (
-                <button
-                  onClick={() => router.push('/login')}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-                >
-                  Go to Login
-                </button>
-              ) : (
-                <button
-                  onClick={handleRefresh}
-                  className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
-                >
-                  Try Again
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Empty State */}
-        {!loading && !error && orders.length === 0 && (
-          <div className="text-center py-12">
-            <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-medium text-gray-900 mb-2">No Orders Found</h3>
-            <p className="text-gray-600 mb-6">
-              {statusFilter ? `No ${statusFilter} orders found.` : "You haven't placed any orders yet."}
-            </p>
-            <button
-              onClick={() => router.push('/products')}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700"
-            >
-              Start Shopping
-            </button>
-          </div>
-        )}
-
-        {/* Orders List */}
-        {!loading && !error && orders.length > 0 && (
-          <div className="space-y-6">
-            {orders.map((order) => (
-              <div key={order.id} className="bg-white rounded-lg shadow hover:shadow-md transition-shadow">
-                {/* Order Header */}
-                <div className="p-6 border-b border-gray-200">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-4">
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          Order #{order.id}
-                        </h3>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Calendar className="w-4 h-4 text-gray-500" />
-                          <span className="text-sm text-gray-600">
-                            {formatDate(order.createdAt)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-4 sm:mt-0 flex items-center gap-4">
-                      <div className={`flex items-center gap-2 px-3 py-1 rounded-full border text-sm font-medium ${
-                        statusColors[order.status as keyof typeof statusColors] || 'bg-gray-100 text-gray-800 border-gray-200'
-                      }`}>
-                        {statusIcons[order.status as keyof typeof statusIcons]}
-                        <span className="capitalize">{order.status}</span>
-                      </div>
-                      <div className="flex items-center gap-1 text-lg font-semibold text-gray-900">
-                        <DollarSign className="w-5 h-5" />
-                        {formatPrice(order.totalAmount)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Order Items Preview */}
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-sm font-medium text-gray-900">
-                      Items ({getOrderItemsCount(order)} total)
-                    </h4>
-                    <button
-                      onClick={() => viewOrder(order.id)}
-                      className="flex items-center gap-2 text-blue-600 hover:text-blue-700 text-sm font-medium"
-                    >
-                      <Eye className="w-4 h-4" />
-                      View Details
-                    </button>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {order.orderItems.slice(0, 3).map((item, index) => (
-                      <div key={item.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                        <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
-                          {item.product.images?.[0] ? (
-                            <img
-                              src={getProductImageUrl({
-                                ...item.product,
-                                images: item.product.images.map(img => ({
-                                  imageUrl: typeof img === 'string' ? img : img,
-                                  isActive: true,
-                                  sortOrder: 0
-                                }))
-                              })}
-                              alt={item.product.name}
-                              className="w-full h-full object-cover rounded-lg"
-                              onError={handleImageError}
-                            />
-                          ) : (
-                            <Package className="w-6 h-6 text-gray-400" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">
-                            {item.product.name}
-                          </p>
-                          <p className="text-xs text-gray-600">
-                            Qty: {item.quantity} × {formatPrice(item.unitPriceSnapshot)}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                    {order.orderItems.length > 3 && (
-                      <div className="flex items-center justify-center p-3 bg-gray-50 rounded-lg text-sm text-gray-600">
-                        +{order.orderItems.length - 3} more items
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Order Footer */}
-                <div className="px-6 py-4 bg-gray-50 rounded-b-lg">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-gray-600">
-                      <span className="font-medium">Ship to:</span> {order.shippingAddress.fullName}
-                    </div>
-                    <button
-                      onClick={() => viewOrder(order.id)}
-                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                    >
-                      View Order
-                    </button>
-                  </div>
-                </div>
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="card p-6">
+                <div className="skeleton h-5 w-1/3 mb-3" />
+                <div className="skeleton h-4 w-1/2" />
               </div>
             ))}
           </div>
         )}
 
+        {/* Error */}
+        {error && !loading && (
+          <div className="alert alert-error mb-6">
+            <XCircle className="w-4 h-4 shrink-0" />
+            <div className="flex-1">
+              <p>{error}</p>
+              <button onClick={() => error.includes('log in') ? router.push('/login') : fetchOrders(currentPage)}
+                className="btn btn-sm btn-outline mt-2">
+                {error.includes('log in') ? 'Go to Login' : 'Try Again'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Empty */}
+        {!loading && !error && orders.length === 0 && (
+          <div className="text-center py-20">
+            <Package className="w-14 h-14 mx-auto mb-4" style={{ color: 'var(--text-muted)' }} />
+            <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+              {statusFilter ? `No ${statusFilter} orders` : 'No orders yet'}
+            </h3>
+            <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>
+              {statusFilter ? 'Try a different filter.' : "You haven't placed any orders yet."}
+            </p>
+            <Link href="/products" className="btn btn-primary">Start Shopping</Link>
+          </div>
+        )}
+
+        {/* Orders list */}
+        {!loading && !error && orders.length > 0 && (
+          <div className="space-y-4">
+            {orders.map((order) => {
+              const statusInfo = STATUS_MAP[order.status] || { label: order.status, badgeClass: 'badge badge-gray', icon: null };
+              return (
+                <div key={order.id} className="card overflow-hidden card-interactive">
+                  {/* Header */}
+                  <div className="px-5 py-4 border-b border-[var(--border)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-4">
+                      <div>
+                        <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                          Order #{order.id}
+                        </h3>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <Calendar className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
+                          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatDate(order.createdAt)}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={statusInfo.badgeClass}>
+                        {statusInfo.icon} {statusInfo.label}
+                      </span>
+                      <span className="font-bold" style={{ color: 'var(--accent-600)' }}>
+                        {formatPrice(order.totalAmount)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Items */}
+                  <div className="p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                        {getItemCount(order)} item{getItemCount(order) !== 1 ? 's' : ''}
+                      </p>
+                      <button onClick={() => router.push(`/orders/${order.id}/confirmation`)}
+                        className="flex items-center gap-1.5 text-xs font-semibold hover:underline"
+                        style={{ color: 'var(--accent-600)' }}>
+                        <Eye className="w-3.5 h-3.5" /> View Details
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {order.orderItems.slice(0, 3).map((item) => (
+                        <div key={item.id} className="flex items-center gap-3 p-3 rounded-lg bg-[var(--bg-secondary)]">
+                          <div className="w-10 h-10 rounded-lg bg-[var(--bg-tertiary)] overflow-hidden shrink-0">
+                            {item.product.images?.[0] ? (
+                              <img
+                                src={getProductImageUrl({ ...item.product, images: item.product.images.map(img => ({ imageUrl: String(img), isActive: true, sortOrder: 0 })) })}
+                                alt={item.product.name}
+                                className="w-full h-full object-cover"
+                                onError={handleImageError}
+                              />
+                            ) : <Package className="w-5 h-5 m-auto mt-2.5" style={{ color: 'var(--text-muted)' }} />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{item.product.name}</p>
+                            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                              {item.quantity} × {formatPrice(item.unitPriceSnapshot)}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                      {order.orderItems.length > 3 && (
+                        <div className="flex items-center justify-center p-3 rounded-lg bg-[var(--bg-secondary)] text-sm font-medium"
+                          style={{ color: 'var(--text-secondary)' }}>
+                          +{order.orderItems.length - 3} more
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Footer */}
+                  <div className="px-5 py-3 bg-[var(--bg-secondary)] flex items-center justify-between">
+                    <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                      <span className="font-semibold">Ship to:</span> {order.shippingAddress.fullName}
+                    </p>
+                    <button onClick={() => router.push(`/orders/${order.id}/confirmation`)}
+                      className="btn btn-primary btn-sm">
+                      View Order
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {/* Pagination */}
         {!loading && !error && totalPages > 1 && (
-          <div className="mt-8 flex items-center justify-center">
-            <nav className="flex items-center gap-2">
-              <button
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Previous
+          <div className="flex items-center justify-center gap-2 mt-8 flex-wrap">
+            <button onClick={() => fetchOrders(currentPage - 1)} disabled={currentPage === 1}
+              className="btn btn-outline btn-sm">← Previous</button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button key={page} onClick={() => fetchOrders(page)}
+                className={`btn btn-sm ${page === currentPage ? 'btn-primary' : 'btn-outline'}`}>
+                {page}
               </button>
-              
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                <button
-                  key={page}
-                  onClick={() => handlePageChange(page)}
-                  className={`px-3 py-2 text-sm font-medium rounded-lg ${
-                    page === currentPage
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  {page}
-                </button>
-              ))}
-              
-              <button
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Next
-              </button>
-            </nav>
+            ))}
+            <button onClick={() => fetchOrders(currentPage + 1)} disabled={currentPage === totalPages}
+              className="btn btn-outline btn-sm">Next →</button>
           </div>
         )}
       </div>

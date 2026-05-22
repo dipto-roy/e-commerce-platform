@@ -3,18 +3,19 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContextNew';
 import { useToast } from '@/contexts/ToastContext';
 import { adminAPI } from '@/lib/adminAPI';
+import { User, Save, RefreshCw } from 'lucide-react';
 
 interface UserProfile {
-  id: number;
-  username: string;
-  email: string;
-  fullName?: string;
-  phone?: string;
-  role: string;
-  isActive: boolean;
-  isVerified: boolean;
-  createdAt?: string;
+  id: number; username: string; email: string;
+  fullName?: string; phone?: string; role: string;
+  isActive: boolean; isVerified: boolean; createdAt?: string;
 }
+
+const ROLE_BADGE: Record<string, string> = {
+  ADMIN:  'badge badge-green',
+  SELLER: 'badge badge-blue',
+  USER:   'badge badge-gray',
+};
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -22,206 +23,122 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    phone: '',
-    username: ''
-  });
+  const [formData, setFormData] = useState({ fullName: '', email: '', phone: '', username: '' });
 
-  useEffect(() => {
-    if (user) {
-      fetchProfile();
-    }
-  }, [user]);
+  useEffect(() => { if (user) fetchProfile(); }, [user]);
 
   const fetchProfile = async () => {
     try {
       setLoading(true);
       if (!user?.id) return;
-      
       const response = await adminAPI.getUserById(user.id);
       const userData = response.data as UserProfile;
-      
       setProfile(userData);
-      setFormData({
-        fullName: userData.fullName || '',
-        email: userData.email || '',
-        phone: userData.phone || '',
-        username: userData.username || ''
-      });
-    } catch (error) {
-      console.error('Failed to fetch profile:', error);
-      addToast('Failed to load profile', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+      setFormData({ fullName: userData.fullName || '', email: userData.email || '', phone: userData.phone || '', username: userData.username || '' });
+    } catch { addToast('Failed to load profile', 'error'); }
+    finally { setLoading(false); }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.id) return;
-
     try {
       setSaving(true);
       await adminAPI.updateUser(user.id, formData);
       addToast('Profile updated successfully', 'success');
-      fetchProfile(); // Refresh profile data
-    } catch (error: any) {
-      console.error('Failed to update profile:', error);
-      addToast(error.response?.data?.message || 'Failed to update profile', 'error');
-    } finally {
-      setSaving(false);
-    }
+      fetchProfile();
+    } catch (err: any) { addToast(err.response?.data?.message || 'Failed to update profile', 'error'); }
+    finally { setSaving(false); }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      <div className="page-wrapper flex items-center justify-center">
+        <span className="spinner" style={{ width: '3rem', height: '3rem', borderWidth: '3px' }} />
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900">Not logged in</h2>
-          <p className="text-gray-600">Please log in to view your profile</p>
+      <div className="page-wrapper flex items-center justify-center p-6">
+        <div className="card p-8 max-w-sm text-center">
+          <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Not logged in</h2>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Please log in to view your profile.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white shadow rounded-lg">
-          {/* Header */}
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h1 className="text-2xl font-bold text-gray-900">Profile Settings</h1>
-            <p className="text-gray-600">Manage your account information</p>
-          </div>
+    <div className="page-wrapper">
+      <div className="page-header">
+        <div className="container-app">
+          <h1 className="section-title">Profile Settings</h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>Manage your account information</p>
+        </div>
+      </div>
 
-          {/* Profile Info */}
-          <div className="px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center">
-                <span className="text-white text-xl font-bold">
-                  {(profile?.fullName || profile?.username || 'U').charAt(0).toUpperCase()}
+      <div className="container-app py-8 max-w-3xl">
+        {/* Avatar & info */}
+        <div className="card p-6 mb-6">
+          <div className="flex items-center gap-5">
+            <div className="w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold shrink-0"
+              style={{ background: 'var(--accent-500)' }}>
+              {(profile?.fullName || profile?.username || 'U').charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
+                {profile?.fullName || profile?.username}
+              </h2>
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{profile?.email}</p>
+              <div className="flex flex-wrap gap-2 mt-2">
+                <span className={profile?.isActive ? 'badge badge-green' : 'badge badge-red'}>
+                  {profile?.isActive ? 'Active' : 'Inactive'}
+                </span>
+                <span className={profile?.isVerified ? 'badge badge-green' : 'badge badge-yellow'}>
+                  {profile?.isVerified ? 'Verified' : 'Unverified'}
+                </span>
+                <span className={ROLE_BADGE[profile?.role || 'USER'] || 'badge badge-gray'}>
+                  {profile?.role}
                 </span>
               </div>
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900">
-                  {profile?.fullName || profile?.username}
-                </h2>
-                <p className="text-gray-600">{profile?.email}</p>
-                <div className="flex items-center space-x-2 mt-1">
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    profile?.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  }`}>
-                    {profile?.isActive ? 'Active' : 'Inactive'}
-                  </span>
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    profile?.isVerified ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {profile?.isVerified ? 'Verified' : 'Unverified'}
-                  </span>
-                  <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">
-                    {profile?.role}
-                  </span>
-                </div>
-              </div>
             </div>
           </div>
+        </div>
 
-          {/* Edit Form */}
-          <form onSubmit={handleSubmit} className="px-6 py-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  id="fullName"
-                  name="fullName"
-                  value={formData.fullName}
-                  onChange={handleInputChange}
-                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter your full name"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-                  Username
-                </label>
-                <input
-                  type="text"
-                  id="username"
-                  name="username"
-                  value={formData.username}
-                  onChange={handleInputChange}
-                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter your username"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter your email"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-                  Phone Number
-                </label>
-                <input
-                  type="tel"
-                  id="phone"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter your phone number"
-                />
-              </div>
+        {/* Edit form */}
+        <div className="card p-6">
+          <h2 className="font-semibold mb-5" style={{ color: 'var(--text-primary)' }}>Edit Information</h2>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              {[
+                { id: 'fullName', label: 'Full Name',     type: 'text',  placeholder: 'Enter your full name' },
+                { id: 'username', label: 'Username',      type: 'text',  placeholder: 'Enter your username' },
+                { id: 'email',    label: 'Email Address', type: 'email', placeholder: 'Enter your email' },
+                { id: 'phone',    label: 'Phone Number',  type: 'tel',   placeholder: '01XXXXXXXXX' },
+              ].map(({ id, label, type, placeholder }) => (
+                <div key={id} className="input-group">
+                  <label htmlFor={id} className="label">{label}</label>
+                  <input
+                    type={type}
+                    id={id}
+                    name={id}
+                    value={formData[id as keyof typeof formData]}
+                    onChange={(e) => setFormData(prev => ({ ...prev, [id]: e.target.value }))}
+                    className="input"
+                    placeholder={placeholder}
+                  />
+                </div>
+              ))}
             </div>
 
-            <div className="mt-6 flex justify-end space-x-3">
-              <button
-                type="button"
-                onClick={fetchProfile}
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                Cancel
+            <div className="flex justify-end gap-3 pt-2">
+              <button type="button" onClick={fetchProfile} disabled={saving} className="btn btn-outline">
+                <RefreshCw className="w-4 h-4" /> Reset
               </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-              >
-                {saving ? 'Saving...' : 'Save Changes'}
+              <button type="submit" disabled={saving} className="btn btn-primary">
+                {saving ? <><span className="spinner" /> Saving…</> : <><Save className="w-4 h-4" /> Save Changes</>}
               </button>
             </div>
           </form>

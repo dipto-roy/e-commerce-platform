@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { paymentAPI, financialAPI } from '@/utils/api';
-import { DollarSign, RefreshCw, Download, Search, Filter } from 'lucide-react';
+import { DollarSign, RefreshCw, Download, Search, Filter, ShoppingBag, CheckCircle } from 'lucide-react';
 
 interface Payment {
   id: number;
@@ -32,6 +32,21 @@ interface PaymentFilters {
   searchQuery?: string;
 }
 
+const STATUS_BADGE: Record<string, string> = {
+  COMPLETED: 'badge badge-green',
+  PENDING:   'badge badge-yellow',
+  FAILED:    'badge badge-red',
+  REFUNDED:  'badge badge-blue',
+  CANCELLED: 'badge',
+};
+
+const OVERVIEW_CARDS = (overview: any) => [
+  { label: 'Total Revenue',       value: `$${Number(overview.totalRevenue || 0).toFixed(2)}`,   icon: DollarSign,   color: '#10b981' },
+  { label: 'Total Orders',        value: overview.totalOrders || 0,                              icon: ShoppingBag,  color: '#6366f1' },
+  { label: 'Platform Fees',       value: `$${Number(overview.platformFees || 0).toFixed(2)}`,   icon: DollarSign,   color: '#f59e0b' },
+  { label: 'Completed Payments',  value: overview.completedPayments || 0,                        icon: CheckCircle,  color: '#059669' },
+];
+
 export default function AdminPayments() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
@@ -48,40 +63,25 @@ export default function AdminPayments() {
   useEffect(() => {
     fetchPayments();
     fetchPlatformOverview();
-    
-    // Auto-refresh every 30 seconds
     const interval = setInterval(() => {
       fetchPayments();
       fetchPlatformOverview();
     }, 30000);
-    
     return () => clearInterval(interval);
   }, [page, filters]);
 
   const fetchPayments = async () => {
     try {
       setLoading(true);
-      
-      // Build filters object
       const apiFilters: any = {};
-      if (filters.status && filters.status !== 'all') {
-        apiFilters.status = filters.status;
-      }
-      if (filters.startDate) {
-        apiFilters.startDate = filters.startDate;
-      }
-      if (filters.endDate) {
-        apiFilters.endDate = filters.endDate;
-      }
-      
-      // Fetch payments from backend
+      if (filters.status && filters.status !== 'all') apiFilters.status = filters.status;
+      if (filters.startDate) apiFilters.startDate = filters.startDate;
+      if (filters.endDate) apiFilters.endDate = filters.endDate;
+
       const response = await paymentAPI.getAllPayments(page, 20, apiFilters);
       const data = (response.data as any).data;
-      
       setPayments(data.payments || []);
       setTotalPages(data.totalPages || 1);
-      
-      console.log(`📊 Fetched ${data.payments?.length || 0} payments (Page ${page}/${data.totalPages})`);
     } catch (error) {
       console.error('Failed to fetch payments:', error);
       setPayments([]);
@@ -94,7 +94,7 @@ export default function AdminPayments() {
   const fetchPlatformOverview = async () => {
     try {
       const response = await financialAPI.getPlatformOverview();
-      setPlatformOverview((response.data as any));
+      setPlatformOverview(response.data as any);
     } catch (error) {
       console.error('Failed to fetch platform overview:', error);
     }
@@ -102,14 +102,9 @@ export default function AdminPayments() {
 
   const handleRefund = async () => {
     if (!selectedPayment) return;
-    
     try {
       const amount = refundAmount ? parseFloat(refundAmount) : undefined;
-      await paymentAPI.requestRefund(selectedPayment.orderId, {
-        amount,
-        reason: refundReason
-      });
-      
+      await paymentAPI.requestRefund(selectedPayment.orderId, { amount, reason: refundReason });
       alert('Refund processed successfully!');
       setShowRefundModal(false);
       setSelectedPayment(null);
@@ -122,117 +117,64 @@ export default function AdminPayments() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status?.toUpperCase()) {
-      case 'COMPLETED':
-        return 'bg-green-100 text-green-800';
-      case 'PENDING':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'FAILED':
-        return 'bg-red-100 text-red-800';
-      case 'REFUNDED':
-        return 'bg-purple-100 text-purple-800';
-      case 'CANCELLED':
-        return 'bg-gray-100 text-gray-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Payment Management</h2>
-          <p className="text-gray-600 mt-1">Manage Stripe payments, refunds, and analytics</p>
+          <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Payment Management</h2>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+            Manage Stripe payments, refunds, and analytics
+          </p>
         </div>
-        <button
-          onClick={() => fetchPayments()}
-          disabled={loading}
-          className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-        >
+        <button onClick={fetchPayments} disabled={loading} className="btn btn-primary btn-sm self-start sm:self-auto">
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          <span>Refresh</span>
+          Refresh
         </button>
       </div>
 
       {/* Platform Overview */}
       {platformOverview && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Revenue</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  ${platformOverview.totalRevenue?.toFixed(2) || '0.00'}
-                </p>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {OVERVIEW_CARDS(platformOverview).map(({ label, value, icon: Icon, color }) => (
+            <div key={label} className="card p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{label}</p>
+                  <p className="text-xl font-bold mt-1" style={{ color: 'var(--text-primary)' }}>{value}</p>
+                </div>
+                <div className="w-10 h-10 rounded-full flex items-center justify-center"
+                  style={{ background: `${color}18` }}>
+                  <Icon className="h-5 w-5" style={{ color }} />
+                </div>
               </div>
-              <DollarSign className="h-8 w-8 text-green-500" />
             </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Orders</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {platformOverview.totalOrders || 0}
-                </p>
-              </div>
-              <DollarSign className="h-8 w-8 text-blue-500" />
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Platform Fees</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  ${platformOverview.platformFees?.toFixed(2) || '0.00'}
-                </p>
-              </div>
-              <DollarSign className="h-8 w-8 text-purple-500" />
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Completed Payments</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {platformOverview.completedPayments || 0}
-                </p>
-              </div>
-              <DollarSign className="h-8 w-8 text-green-500" />
-            </div>
-          </div>
+          ))}
         </div>
       )}
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
+      <div className="card p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>Filters</h3>
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center space-x-2 text-blue-600 hover:text-blue-700"
+            className="btn btn-ghost btn-sm"
+            style={{ color: 'var(--accent-600)' }}
           >
             <Filter className="h-4 w-4" />
-            <span>{showFilters ? 'Hide' : 'Show'} Filters</span>
+            {showFilters ? 'Hide' : 'Show'} Filters
           </button>
         </div>
 
         {showFilters && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Status
-              </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-3 border-t border-[var(--border)]">
+            <div className="input-group">
+              <label className="label">Status</label>
               <select
                 value={filters.status || ''}
-                onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                onChange={e => setFilters({ ...filters, status: e.target.value })}
+                className="input"
               >
                 <option value="">All Statuses</option>
                 <option value="COMPLETED">Completed</option>
@@ -243,43 +185,28 @@ export default function AdminPayments() {
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Start Date
-              </label>
-              <input
-                type="date"
-                value={filters.startDate || ''}
-                onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
+            <div className="input-group">
+              <label className="label">Start Date</label>
+              <input type="date" value={filters.startDate || ''}
+                onChange={e => setFilters({ ...filters, startDate: e.target.value })}
+                className="input" />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                End Date
-              </label>
-              <input
-                type="date"
-                value={filters.endDate || ''}
-                onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
+            <div className="input-group">
+              <label className="label">End Date</label>
+              <input type="date" value={filters.endDate || ''}
+                onChange={e => setFilters({ ...filters, endDate: e.target.value })}
+                className="input" />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Search
-              </label>
+            <div className="input-group">
+              <label className="label">Search</label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Order ID, Customer..."
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: 'var(--text-muted)' }} />
+                <input type="text" placeholder="Order ID, Customer..."
                   value={filters.searchQuery || ''}
-                  onChange={(e) => setFilters({ ...filters, searchQuery: e.target.value })}
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
+                  onChange={e => setFilters({ ...filters, searchQuery: e.target.value })}
+                  className="input pl-9" />
               </div>
             </div>
           </div>
@@ -287,90 +214,80 @@ export default function AdminPayments() {
       </div>
 
       {/* Payments Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Payment Transactions</h3>
+      <div className="card overflow-hidden">
+        <div className="px-6 py-4 border-b border-[var(--border)]">
+          <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Payment Transactions</h3>
         </div>
 
         {loading ? (
-          <div className="p-8 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading payments...</p>
+          <div className="p-12 text-center">
+            <span className="spinner" style={{ width: 32, height: 32 }} />
+            <p className="mt-4 text-sm" style={{ color: 'var(--text-secondary)' }}>Loading payments…</p>
           </div>
         ) : payments.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            <p>No payments found</p>
-            <p className="text-sm mt-2">Payment transactions will appear here once orders are placed</p>
+          <div className="p-12 text-center">
+            <DollarSign className="h-10 w-10 mx-auto mb-3" style={{ color: 'var(--text-muted)' }} />
+            <p className="font-medium" style={{ color: 'var(--text-primary)' }}>No payments found</p>
+            <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+              Payment transactions will appear here once orders are placed
+            </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+          <div className="table-wrapper">
+            <table className="table">
+              <thead>
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Order ID
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Customer
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Method
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  {['Order ID', 'Customer', 'Amount', 'Method', 'Status', 'Date', 'Actions'].map(h => (
+                    <th key={h}>{h}</th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {payments.map((payment) => (
-                  <tr key={payment.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+              <tbody>
+                {payments.map(payment => (
+                  <tr key={payment.id}>
+                    <td className="font-medium" style={{ color: 'var(--text-primary)' }}>
                       #{payment.order?.orderNumber || payment.orderId}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{payment.order?.buyer?.username || 'N/A'}</div>
-                      <div className="text-sm text-gray-500">{payment.order?.buyer?.email || 'N/A'}</div>
+                    <td>
+                      <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                        {payment.order?.buyer?.username || 'N/A'}
+                      </div>
+                      <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                        {payment.order?.buyer?.email || 'N/A'}
+                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                    <td className="font-semibold" style={{ color: 'var(--text-primary)' }}>
                       ${Number(payment.amount || 0).toFixed(2)} {payment.currency}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 uppercase">
+                    <td className="uppercase text-sm" style={{ color: 'var(--text-secondary)' }}>
                       {payment.order?.paymentMethod || payment.provider}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(payment.status)}`}>
+                    <td>
+                      <span className={STATUS_BADGE[payment.status?.toUpperCase()] ?? 'badge'}>
                         {payment.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                       {payment.paidAt ? new Date(payment.paidAt).toLocaleDateString() : 'N/A'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                      <button
-                        onClick={() => {
-                          setSelectedPayment(payment);
-                          setShowRefundModal(true);
-                        }}
-                        disabled={payment.status !== 'COMPLETED'}
-                        className="text-blue-600 hover:text-blue-900 disabled:text-gray-400 disabled:cursor-not-allowed"
-                      >
-                        Refund
-                      </button>
-                      <button
-                        onClick={() => paymentAPI.downloadInvoice(payment.orderId)}
-                        className="text-green-600 hover:text-green-900"
-                      >
-                        <Download className="h-4 w-4 inline" />
-                      </button>
+                    <td>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => { setSelectedPayment(payment); setShowRefundModal(true); }}
+                          disabled={payment.status !== 'COMPLETED'}
+                          className="text-xs font-medium hover:underline disabled:opacity-40 disabled:cursor-not-allowed"
+                          style={{ color: 'var(--accent-600)' }}
+                        >
+                          Refund
+                        </button>
+                        <button
+                          onClick={() => paymentAPI.downloadInvoice(payment.orderId)}
+                          className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                          title="Download invoice"
+                        >
+                          <Download className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -378,63 +295,66 @@ export default function AdminPayments() {
             </table>
           </div>
         )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="px-6 py-3 border-t border-[var(--border)] flex items-center justify-between">
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="btn btn-outline btn-sm">
+              ← Prev
+            </button>
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              Page {page} of {totalPages}
+            </span>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="btn btn-outline btn-sm">
+              Next →
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Refund Modal */}
       {showRefundModal && selectedPayment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Process Refund - Order #{selectedPayment.orderId}
-            </h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Refund Amount (Optional - leave empty for full refund)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder={`Max: $${Number(selectedPayment.amount || 0).toFixed(2)}`}
-                  value={refundAmount}
-                  onChange={(e) => setRefundAmount(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="card shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+                Process Refund — Order #{selectedPayment.orderId}
+              </h3>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Reason for Refund
-                </label>
-                <textarea
-                  rows={3}
-                  placeholder="Enter reason for refund..."
-                  value={refundReason}
-                  onChange={(e) => setRefundReason(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+              <div className="space-y-4">
+                <div className="input-group">
+                  <label className="label">
+                    Refund Amount <span style={{ color: 'var(--text-muted)' }}>(leave empty for full refund)</span>
+                  </label>
+                  <input
+                    type="number" step="0.01"
+                    placeholder={`Max: $${Number(selectedPayment.amount || 0).toFixed(2)}`}
+                    value={refundAmount}
+                    onChange={e => setRefundAmount(e.target.value)}
+                    className="input"
+                  />
+                </div>
 
-              <div className="flex space-x-3 mt-6">
-                <button
-                  onClick={handleRefund}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                >
-                  Process Refund
-                </button>
-                <button
-                  onClick={() => {
-                    setShowRefundModal(false);
-                    setSelectedPayment(null);
-                    setRefundAmount('');
-                    setRefundReason('');
-                  }}
-                  className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
-                >
-                  Cancel
-                </button>
+                <div className="input-group">
+                  <label className="label">Reason for Refund</label>
+                  <textarea
+                    rows={3} placeholder="Enter reason for refund…"
+                    value={refundReason}
+                    onChange={e => setRefundReason(e.target.value)}
+                    className="input"
+                  />
+                </div>
               </div>
+            </div>
+
+            <div className="px-6 pb-6 flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
+              <button onClick={() => { setShowRefundModal(false); setSelectedPayment(null); setRefundAmount(''); setRefundReason(''); }}
+                className="btn btn-outline">
+                Cancel
+              </button>
+              <button onClick={handleRefund} className="btn btn-danger">
+                Process Refund
+              </button>
             </div>
           </div>
         </div>

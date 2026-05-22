@@ -4,8 +4,7 @@ import { Bell, CheckCircle, AlertCircle } from 'lucide-react';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { useRouter } from 'next/navigation';
 
-// Audio feedback for new notifications
-const notificationSound = new Audio('/notification.mp3'); // You'll need to add this audio file
+const notificationSound = typeof window !== 'undefined' ? new Audio('/notification.mp3') : null;
 
 const NotificationIndicator: React.FC<{ onToggle?: () => void }> = ({ onToggle }) => {
   const router = useRouter();
@@ -13,144 +12,111 @@ const NotificationIndicator: React.FC<{ onToggle?: () => void }> = ({ onToggle }
   const [showDropdown, setShowDropdown] = useState(false);
   const [hasNewNotification, setHasNewNotification] = useState(false);
 
-  // Play sound and show animation for new notifications
+  // Animate + sound for new notifications
   useEffect(() => {
     if (unreadCount > 0) {
       setHasNewNotification(true);
-      try {
-        notificationSound.play().catch(() => {}); // Ignore autoplay restrictions
-      } catch (e) {}
-      
-      // Reset animation after 2 seconds
-      const timer = setTimeout(() => {
-        setHasNewNotification(false);
-      }, 2000);
-
+      try { notificationSound?.play().catch(() => {}); } catch {}
+      const timer = setTimeout(() => setHasNewNotification(false), 2000);
       return () => clearTimeout(timer);
     }
   }, [unreadCount]);
 
-  // Close dropdown when clicking outside
+  // Close on outside click
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (!target.closest('.notification-container')) {
-        setShowDropdown(false);
-      }
+    const handle = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest('.notification-container')) setShowDropdown(false);
     };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
   }, []);
 
   const handleToggle = useCallback(() => {
     setShowDropdown(prev => !prev);
-    if (onToggle) onToggle();
+    onToggle?.();
   }, [onToggle]);
 
-  // Handle notification click
   const handleNotificationClick = useCallback((notification: any) => {
-    // Mark as read
-    if (!notification.read) {
-      markAsRead(notification.id);
-    }
-
-    // Navigate based on notification type
-    if (notification.type === 'order') {
-      router.push(`/orders/${notification.data?.orderId}`);
-    } else if (notification.type === 'payment') {
-      router.push('/payments');
-    } else if (notification.type === 'product') {
-      router.push(`/products/${notification.data?.productId}`);
-    }
-
+    if (!notification.read) markAsRead(notification.id);
+    if (notification.type === 'order') router.push(`/orders/${notification.data?.orderId}`);
+    else if (notification.type === 'payment') router.push('/payments');
+    else if (notification.type === 'product') router.push(`/products/${notification.data?.productId}`);
     setShowDropdown(false);
   }, [markAsRead, router]);
 
   return (
     <div className="relative inline-flex notification-container">
       <button
-        className={`relative p-2 text-gray-700 transition-colors rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-          hasNewNotification 
-            ? 'animate-shake hover:text-blue-600'
-            : 'hover:text-blue-600'
-        }`}
+        className={`relative p-2 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--accent-500)] focus:ring-offset-2 hover:bg-[var(--bg-secondary)] ${hasNewNotification ? 'animate-bounce' : ''}`}
         onClick={handleToggle}
         aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}
         aria-expanded={showDropdown}
         aria-haspopup="true"
       >
-        <Bell className={`h-6 w-6 ${hasNewNotification ? 'animate-bounce' : ''}`} />
-        
-        {/* Connection Status with Pulse Animation */}
-        <span 
-          className={`absolute -top-1 -left-1 h-3 w-3 rounded-full border-2 border-white ${
-            isConnected 
-              ? 'bg-green-500 animate-pulse' 
-              : 'bg-red-500'
-          }`}
-          title={isConnected ? 'Connected to notification service' : 'Disconnected - trying to reconnect'}
+        <Bell className="h-5 w-5" style={{ color: unreadCount > 0 ? 'var(--accent-600)' : 'var(--text-secondary)' }} />
+
+        {/* Connection dot */}
+        <span
+          className={`absolute -top-0.5 -left-0.5 h-2.5 w-2.5 rounded-full border-2 border-white ${isConnected ? 'animate-pulse' : ''}`}
+          style={{ background: isConnected ? '#10b981' : '#ef4444' }}
+          title={isConnected ? 'Connected' : 'Disconnected'}
         />
-        
-        {/* Unread Badge with Smooth Animation */}
+
+        {/* Unread badge */}
         {unreadCount > 0 && (
-          <span 
-            className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center transform transition-transform duration-200 ease-out animate-pulse"
-            title={`${unreadCount} unread ${unreadCount === 1 ? 'notification' : 'notifications'}`}
+          <span
+            className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5"
+            title={`${unreadCount} unread`}
           >
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </button>
 
-      {/* Notification Dropdown */}
+      {/* Dropdown */}
       {showDropdown && (
-        <div 
-          className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-[32rem] flex flex-col"
+        <div
+          className="absolute right-0 mt-2 w-80 sm:w-96 card overflow-hidden shadow-xl z-50 max-h-[32rem] flex flex-col"
           role="menu"
           aria-orientation="vertical"
-          aria-labelledby="notification-menu"
         >
           {/* Header */}
-          <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
-            <h3 className="text-lg font-semibold text-gray-900">Notifications</h3>
+          <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between"
+            style={{ background: 'var(--bg-secondary)' }}>
+            <h3 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>Notifications</h3>
             {unreadCount > 0 && (
-              <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                {unreadCount} new
-              </span>
+              <span className="badge badge-green">{unreadCount} new</span>
             )}
           </div>
 
-          {/* Notification List */}
+          {/* List */}
           <div className="overflow-y-auto flex-1">
             {notifications.length > 0 ? (
-              <div className="divide-y divide-gray-200">
-                {notifications.map((notification) => (
+              <div className="divide-y divide-[var(--border)]">
+                {notifications.map(notification => (
                   <button
                     key={notification.id}
-                    className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors flex items-start gap-3 ${
-                      !notification.read ? 'bg-blue-50' : ''
+                    className={`w-full text-left px-4 py-3 transition-colors hover:bg-[var(--bg-secondary)] flex items-start gap-3 ${
+                      !notification.read ? 'bg-[var(--accent-50)]' : ''
                     }`}
                     onClick={() => handleNotificationClick(notification)}
                   >
-                    {/* Icon based on type */}
-                    <span className="flex-shrink-0 mt-1">
-                      {notification.read ? (
-                        <CheckCircle className="h-5 w-5 text-green-500" />
-                      ) : (
-                        <AlertCircle className="h-5 w-5 text-blue-500 animate-pulse" />
-                      )}
+                    <span className="flex-shrink-0 mt-0.5">
+                      {notification.read
+                        ? <CheckCircle className="h-5 w-5" style={{ color: '#10b981' }} />
+                        : <AlertCircle className="h-5 w-5 animate-pulse" style={{ color: 'var(--accent-600)' }} />
+                      }
                     </span>
 
-                    {/* Content */}
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium ${!notification.read ? 'text-gray-900' : 'text-gray-600'}`}>
+                      <p className={`text-sm font-medium ${!notification.read ? 'font-semibold' : ''}`}
+                        style={{ color: 'var(--text-primary)' }}>
                         {notification.title}
                       </p>
-                      <p className="text-sm text-gray-500 line-clamp-2">
+                      <p className="text-xs mt-0.5 line-clamp-2" style={{ color: 'var(--text-secondary)' }}>
                         {notification.message}
                       </p>
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
                         {new Date(notification.timestamp).toLocaleString()}
                       </p>
                     </div>
@@ -158,20 +124,22 @@ const NotificationIndicator: React.FC<{ onToggle?: () => void }> = ({ onToggle }
                 ))}
               </div>
             ) : (
-              <div className="px-4 py-8 text-center text-gray-500">
-                <Bell className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                <p className="text-base">No notifications yet</p>
-                <p className="text-sm">We'll notify you when something arrives</p>
+              <div className="px-4 py-10 text-center">
+                <Bell className="h-10 w-10 mx-auto mb-3" style={{ color: 'var(--text-muted)' }} />
+                <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>No notifications yet</p>
+                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>We'll notify you when something arrives</p>
               </div>
             )}
           </div>
 
-          {/* Footer Actions */}
+          {/* Footer */}
           {notifications.length > 0 && (
-            <div className="px-4 py-3 bg-gray-50 text-right border-t border-gray-200 rounded-b-lg">
+            <div className="px-4 py-3 border-t border-[var(--border)] text-right"
+              style={{ background: 'var(--bg-secondary)' }}>
               <button
                 onClick={() => router.push('/notifications')}
-                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                className="text-xs font-semibold hover:underline"
+                style={{ color: 'var(--accent-600)' }}
               >
                 View all notifications
               </button>

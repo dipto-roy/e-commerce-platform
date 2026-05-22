@@ -1,5 +1,5 @@
 'use client';
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useRef, ReactNode } from 'react';
 
 interface Toast {
   id: number;
@@ -17,9 +17,10 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const counterRef = useRef(0);
 
   const addToast = (message: string, type: Toast['type']) => {
-    const id = Date.now();
+    const id = ++counterRef.current;
     const toast = { id, message, type };
     setToasts(prev => [...prev, toast]);
 
@@ -51,7 +52,7 @@ function ToastContainer({ toasts, removeToast }: { toasts: Toast[]; removeToast:
             max-w-sm p-4 rounded-lg shadow-lg cursor-pointer transition-all duration-300
             ${toast.type === 'success' ? 'bg-green-500 text-white' : ''}
             ${toast.type === 'error' ? 'bg-red-500 text-white' : ''}
-            ${toast.type === 'info' ? 'bg-blue-500 text-white' : ''}
+            ${toast.type === 'info' ? 'bg-[var(--accent-500)] text-white' : ''}
             ${toast.type === 'warning' ? 'bg-yellow-500 text-black' : ''}
           `}
           onClick={() => removeToast(toast.id)}

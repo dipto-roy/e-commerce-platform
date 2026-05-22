@@ -2,6 +2,11 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContextNew';
 import { useNotifications } from '@/contexts/NotificationContext';
+import { Bell, Wifi, WifiOff, Send } from 'lucide-react';
+
+const TYPE_BADGE: Record<string, string> = {
+  order: 'badge badge-green', system: 'badge badge-blue', default: 'badge badge-gray',
+};
 
 export default function TestNotifications() {
   const { user } = useAuth();
@@ -11,160 +16,141 @@ export default function TestNotifications() {
 
   const sendTestOrderNotification = async () => {
     if (!user) return;
-    
     setLoading(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications/test-order-notification`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications/test-order-notification`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
         body: JSON.stringify({
-          orderId: Math.floor(Math.random() * 1000),
-          userId: user.id,
-          totalAmount: 99.99,
-          customerName: user.username,
-          sellerId: user.role === 'SELLER' ? user.id : 2,
-          sellerId2: 3,
+          orderId: Math.floor(Math.random() * 1000), userId: user.id, totalAmount: 99.99,
+          customerName: user.username, sellerId: user.role === 'SELLER' ? user.id : 2, sellerId2: 3,
         }),
       });
-
-      const result = await response.json();
-      setTestResult(JSON.stringify(result, null, 2));
+      setTestResult(JSON.stringify(await res.json(), null, 2));
     } catch (error) {
       setTestResult(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const sendTestAdminBroadcast = async () => {
     if (!user || user.role !== 'ADMIN') return;
-    
     setLoading(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications/test-admin-broadcast`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications/test-admin-broadcast`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify({
-          title: 'Test Admin Broadcast',
-          message: 'This is a test broadcast message for all admins',
-          urgent: true,
-        }),
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({ title: 'Test Admin Broadcast', message: 'This is a test broadcast message for all admins', urgent: true }),
       });
-
-      const result = await response.json();
-      setTestResult(JSON.stringify(result, null, 2));
+      setTestResult(JSON.stringify(await res.json(), null, 2));
     } catch (error) {
       setTestResult(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-white">Please log in to test notifications</div>
+      <div className="page-wrapper flex items-center justify-center p-6">
+        <div className="card p-8 max-w-sm text-center">
+          <Bell className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--text-muted)' }} />
+          <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Login Required</h2>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Please log in to test notifications.</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 p-8">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-white mb-8">Notification System Test</h1>
-        
-        {/* Connection Status */}
-        <div className="bg-gray-800 rounded-lg p-6 mb-6">
-          <h2 className="text-xl font-semibold text-white mb-4">Connection Status</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-gray-700 p-4 rounded">
-              <div className="text-gray-300">Pusher Connection</div>
-              <div className={`text-lg font-semibold ${isConnected ? 'text-green-400' : 'text-red-400'}`}>
-                {isConnected ? 'Connected' : 'Disconnected'}
+    <div className="page-wrapper">
+      <div className="page-header">
+        <div className="container-app">
+          <h1 className="section-title">Notification System Test</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+            Dev tool for testing real-time notifications
+          </p>
+        </div>
+      </div>
+
+      <div className="container-app py-8 space-y-6">
+        {/* Connection status */}
+        <div className="card p-6">
+          <h2 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Connection Status</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[
+              {
+                label: 'Pusher Connection',
+                value: isConnected ? 'Connected' : 'Disconnected',
+                color: isConnected ? 'var(--accent-600)' : '#ef4444',
+                icon: isConnected ? Wifi : WifiOff,
+              },
+              { label: 'User Role',             value: user.role,  color: '#3b82f6',    icon: Bell },
+              { label: 'Unread Notifications',  value: unreadCount, color: '#f59e0b',   icon: Bell },
+            ].map(({ label, value, color, icon: Icon }) => (
+              <div key={label} className="rounded-xl p-4" style={{ background: 'var(--bg-secondary)' }}>
+                <div className="flex items-center gap-2 mb-1">
+                  <Icon className="w-4 h-4" style={{ color }} />
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{label}</p>
+                </div>
+                <p className="text-lg font-bold" style={{ color }}>{value}</p>
               </div>
-            </div>
-            <div className="bg-gray-700 p-4 rounded">
-              <div className="text-gray-300">User Role</div>
-              <div className="text-lg font-semibold text-blue-400">{user.role}</div>
-            </div>
-            <div className="bg-gray-700 p-4 rounded">
-              <div className="text-gray-300">Unread Notifications</div>
-              <div className="text-lg font-semibold text-yellow-400">{unreadCount}</div>
-            </div>
+            ))}
           </div>
         </div>
 
-        {/* Test Actions */}
-        <div className="bg-gray-800 rounded-lg p-6 mb-6">
-          <h2 className="text-xl font-semibold text-white mb-4">Test Actions</h2>
-          <div className="space-y-4">
-            <button
-              onClick={sendTestOrderNotification}
-              disabled={loading}
-              className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white px-6 py-3 rounded-lg transition-colors"
-            >
-              {loading ? 'Sending...' : 'Test Order Notification'}
+        {/* Test actions */}
+        <div className="card p-6">
+          <h2 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Test Actions</h2>
+          <div className="flex flex-wrap gap-3">
+            <button onClick={sendTestOrderNotification} disabled={loading} className="btn btn-primary">
+              {loading ? <><span className="spinner" /> Sending…</> : <><Send className="w-4 h-4" /> Test Order Notification</>}
             </button>
-            
             {user.role === 'ADMIN' && (
-              <button
-                onClick={sendTestAdminBroadcast}
-                disabled={loading}
-                className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white px-6 py-3 rounded-lg transition-colors ml-4"
-              >
-                {loading ? 'Sending...' : 'Test Admin Broadcast'}
+              <button onClick={sendTestAdminBroadcast} disabled={loading} className="btn btn-outline">
+                {loading ? <><span className="spinner" /> Sending…</> : <><Send className="w-4 h-4" /> Test Admin Broadcast</>}
               </button>
             )}
           </div>
         </div>
 
-        {/* Test Results */}
+        {/* Test result */}
         {testResult && (
-          <div className="bg-gray-800 rounded-lg p-6 mb-6">
-            <h2 className="text-xl font-semibold text-white mb-4">Test Result</h2>
-            <pre className="bg-gray-900 text-green-400 p-4 rounded text-sm overflow-auto">
+          <div className="card p-6">
+            <h2 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Test Result</h2>
+            <pre className="rounded-xl p-4 text-sm overflow-auto"
+              style={{ background: 'var(--bg-secondary)', color: 'var(--accent-600)', fontFamily: 'monospace' }}>
               {testResult}
             </pre>
           </div>
         )}
 
-        {/* Recent Notifications */}
-        <div className="bg-gray-800 rounded-lg p-6">
-          <h2 className="text-xl font-semibold text-white mb-4">Recent Notifications</h2>
+        {/* Recent notifications */}
+        <div className="card p-6">
+          <h2 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+            Recent Notifications
+          </h2>
           {notifications.length === 0 ? (
-            <div className="text-gray-400">No notifications yet</div>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No notifications yet.</p>
           ) : (
             <div className="space-y-3">
-              {notifications.slice(0, 5).map((notification) => (
-                <div
-                  key={notification.id}
-                  className={`p-4 rounded-lg border-l-4 ${
-                    notification.read
-                      ? 'bg-gray-700 border-gray-500'
-                      : 'bg-blue-900 border-blue-400'
-                  }`}
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-semibold text-white">{notification.title}</h3>
-                      <p className="text-gray-300 text-sm">{notification.message}</p>
-                      <div className="text-xs text-gray-400 mt-2">
-                        {new Date(notification.timestamp).toLocaleString()}
-                      </div>
+              {notifications.slice(0, 5).map(n => (
+                <div key={n.id}
+                  className={`p-4 rounded-xl border-l-4 ${n.read ? '' : 'bg-[var(--accent-50)]'}`}
+                  style={{
+                    background: n.read ? 'var(--bg-secondary)' : undefined,
+                    borderLeftColor: n.read ? 'var(--border)' : 'var(--accent-500)',
+                  }}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
+                        {n.title}
+                      </h3>
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>{n.message}</p>
+                      <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+                        {new Date(n.timestamp).toLocaleString()}
+                      </p>
                     </div>
-                    <div className={`px-2 py-1 rounded text-xs ${
-                      notification.type === 'order' ? 'bg-green-600' :
-                      notification.type === 'system' ? 'bg-purple-600' :
-                      'bg-blue-600'
-                    } text-white`}>
-                      {notification.type}
-                    </div>
+                    <span className={TYPE_BADGE[n.type] || TYPE_BADGE.default}>
+                      {n.type}
+                    </span>
                   </div>
                 </div>
               ))}

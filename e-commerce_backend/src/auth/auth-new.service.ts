@@ -77,7 +77,7 @@ export class AuthServiceNew {
       phone,
       role: userRole,
       isActive: true,
-      isVerified: userRole === Role.ADMIN ? true : false, // Admins are pre-verified
+      isVerified: userRole !== Role.SELLER, // Sellers need admin approval; buyers and admins start verified
     });
 
     await this.usersRepository.save(user);

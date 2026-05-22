@@ -208,7 +208,7 @@ export class AuthController {
     // Get refresh token from cookies
     const refreshToken = request.cookies?.refresh_token;
 
-    // Revoke refresh token in database if it exists
+    // Revoke refresh token in database roy@gmail.comif it exists
     if (refreshToken) {
       try {
         await this.authService.logout(refreshToken);

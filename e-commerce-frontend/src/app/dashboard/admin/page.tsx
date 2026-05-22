@@ -1,5 +1,6 @@
 'use client';
 import React, { useEffect, useState } from 'react';
+import { Users, Store, Clock, Package, RefreshCw } from 'lucide-react';
 import { adminAPI } from '@/lib/adminAPI';
 import { useToast } from '@/contexts/ToastContext';
 import { useNotifications } from '@/contexts/NotificationContext';
@@ -19,60 +20,45 @@ interface DashboardStats {
   recentOrders: any[];
 }
 
+const STAT_CARDS = [
+  { key: 'totalUsers',    label: 'Total Users',     icon: Users,   color: 'var(--accent-500)' },
+  { key: 'totalSellers',  label: 'Total Sellers',   icon: Store,   color: '#3b82f6' },
+  { key: 'pendingSellers',label: 'Pending Sellers', icon: Clock,   color: '#f59e0b' },
+  { key: 'totalProducts', label: 'Total Products',  icon: Package, color: '#8b5cf6' },
+] as const;
+
 export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const { addToast } = useToast();
-  const { notifications, unreadCount, isConnected } = useNotifications();
+  const { notifications, isConnected } = useNotifications();
 
-  // Auto-refresh dashboard when new order notifications arrive
   useEffect(() => {
-    const orderNotifications = notifications.filter(n => 
-      n.type === 'order' && 
-      (new Date().getTime() - new Date(n.timestamp).getTime()) < 60000 // Last minute
+    const orderNotifs = notifications.filter(
+      n => n.type === 'order' && (Date.now() - new Date(n.timestamp).getTime()) < 60000
     );
-    
-    if (orderNotifications.length > 0) {
-      console.log('🔄 New order notification detected, refreshing dashboard stats...');
-      fetchDashboardData();
-    }
+    if (orderNotifs.length > 0) fetchDashboardData();
   }, [notifications]);
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
+  useEffect(() => { fetchDashboardData(); }, []);
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      
-      // Use the new getDashboardStats method that properly fetches real data
-      const dashboardStats = await adminAPI.getDashboardStats();
-      console.log('📊 Dashboard stats received:', dashboardStats.data);
-      
+      const res = await adminAPI.getDashboardStats();
+      const d = res.data;
       setStats({
-        totalUsers: dashboardStats.data.totalUsers || 0,
-        totalSellers: dashboardStats.data.totalSellers || 0,
-        pendingSellers: dashboardStats.data.pendingSellers || 0,
-        totalProducts: dashboardStats.data.totalProducts || 0,
-        totalOrders: 0, // Will be implemented when order endpoints are available
-        recentOrders: dashboardStats.data.recentOrders || []
-      });
-      
-      addToast('Dashboard data updated successfully!', 'success');
-    } catch (error) {
-      console.error('Failed to fetch dashboard data:', error);
-      addToast('Failed to load dashboard data', 'error');
-      
-      // Fallback to demo data if API calls fail
-      setStats({
-        totalUsers: 0,
-        totalSellers: 0,
-        pendingSellers: 0,
-        totalProducts: 0,
+        totalUsers: d.totalUsers || 0,
+        totalSellers: d.totalSellers || 0,
+        pendingSellers: d.pendingSellers || 0,
+        totalProducts: d.totalProducts || 0,
         totalOrders: 0,
-        recentOrders: []
+        recentOrders: d.recentOrders || [],
       });
+      addToast('Dashboard updated', 'success');
+    } catch {
+      addToast('Failed to load dashboard data', 'error');
+      setStats({ totalUsers: 0, totalSellers: 0, pendingSellers: 0, totalProducts: 0, totalOrders: 0, recentOrders: [] });
     } finally {
       setLoading(false);
     }
@@ -81,12 +67,15 @@ export default function AdminDashboard() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="flex items-center justify-between">
+          <div className="skeleton h-7 w-40" />
+          <div className="skeleton h-9 w-24" />
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-white p-6 rounded-lg shadow animate-pulse">
-              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-              <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+            <div key={i} className="card p-5">
+              <div className="skeleton h-4 w-3/4 mb-3" />
+              <div className="skeleton h-7 w-1/2" />
             </div>
           ))}
         </div>
@@ -96,99 +85,44 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <div className="flex items-center space-x-4">
-          {/* Real-time notification bell */}
-          <div className="flex items-center space-x-2">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <h1 className="section-title">Dashboard</h1>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <NotificationBell />
-            {isConnected ? (
-              <span className="text-xs text-green-600 font-medium">● Live</span>
-            ) : (
-              <span className="text-xs text-red-600 font-medium">● Offline</span>
-            )}
+            <span className={`text-xs font-semibold ${isConnected ? 'text-[var(--accent-600)]' : 'text-red-500'}`}>
+              ● {isConnected ? 'Live' : 'Offline'}
+            </span>
           </div>
-          <button
-            onClick={fetchDashboardData}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          >
-            Refresh
+          <button onClick={fetchDashboardData} className="btn btn-outline btn-sm">
+            <RefreshCw className="w-3.5 h-3.5" /> Refresh
           </button>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
-                <span className="text-white font-medium text-sm">👥</span>
-              </div>
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {STAT_CARDS.map(({ key, label, icon: Icon, color }) => (
+          <div key={key} className="card p-5 flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: `${color}1a` }}>
+              <Icon className="w-5 h-5" style={{ color }} />
             </div>
-            <div className="ml-5 w-0 flex-1">
-              <dl>
-                <dt className="text-sm font-medium text-gray-500 truncate">Total Users</dt>
-                <dd className="text-lg font-medium text-gray-900">{stats?.totalUsers || 0}</dd>
-              </dl>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
-                <span className="text-white font-medium text-sm">🏪</span>
-              </div>
-            </div>
-            <div className="ml-5 w-0 flex-1">
-              <dl>
-                <dt className="text-sm font-medium text-gray-500 truncate">Total Sellers</dt>
-                <dd className="text-lg font-medium text-gray-900">{stats?.totalSellers || 0}</dd>
-              </dl>
+            <div>
+              <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>{label}</p>
+              <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                {stats?.[key] ?? 0}
+              </p>
             </div>
           </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center">
-                <span className="text-white font-medium text-sm">⏳</span>
-              </div>
-            </div>
-            <div className="ml-5 w-0 flex-1">
-              <dl>
-                <dt className="text-sm font-medium text-gray-500 truncate">Pending Sellers</dt>
-                <dd className="text-lg font-medium text-gray-900">{stats?.pendingSellers || 0}</dd>
-              </dl>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="w-8 h-8 bg-purple-500 rounded-md flex items-center justify-center">
-                <span className="text-white font-medium text-sm">📦</span>
-              </div>
-            </div>
-            <div className="ml-5 w-0 flex-1">
-              <dl>
-                <dt className="text-sm font-medium text-gray-500 truncate">Total Products</dt>
-                <dd className="text-lg font-medium text-gray-900">{stats?.totalProducts || 0}</dd>
-              </dl>
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* Analytics Charts Section */}
+      {/* Charts */}
       {stats && (
         <>
-          {/* Main Overview Bar Chart */}
-          <div className="w-full">
+          <div className="card p-4 overflow-hidden">
             <StatsOverviewChart
               totalUsers={stats.totalUsers}
               totalSellers={stats.totalSellers}
@@ -197,24 +131,23 @@ export default function AdminDashboard() {
             />
           </div>
 
-          {/* Detailed Charts Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* User Distribution Pie Chart */}
-            <UserDistributionChart
-              totalUsers={stats.totalUsers}
-              totalSellers={stats.totalSellers}
-              pendingSellers={stats.pendingSellers}
-            />
-
-            {/* Seller Status Donut Chart */}
-            <SellerStatusChart
-              totalSellers={stats.totalSellers}
-              pendingSellers={stats.pendingSellers}
-            />
+            <div className="card p-4 overflow-hidden">
+              <UserDistributionChart
+                totalUsers={stats.totalUsers}
+                totalSellers={stats.totalSellers}
+                pendingSellers={stats.pendingSellers}
+              />
+            </div>
+            <div className="card p-4 overflow-hidden">
+              <SellerStatusChart
+                totalSellers={stats.totalSellers}
+                pendingSellers={stats.pendingSellers}
+              />
+            </div>
           </div>
 
-          {/* Growth Trends Line Chart */}
-          <div className="w-full">
+          <div className="card p-4 overflow-hidden">
             <StatsLineChart
               totalUsers={stats.totalUsers}
               totalSellers={stats.totalSellers}
@@ -224,58 +157,43 @@ export default function AdminDashboard() {
         </>
       )}
 
-      {/* Payment Management Section */}
+      {/* Payments */}
       <AdminPayments />
 
-      {/* Quick Actions */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button className="p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-            <div className="text-center">
-              <div className="text-2xl mb-2">👥</div>
-              <div className="text-sm font-medium text-gray-900">Manage Users</div>
-              <div className="text-xs text-gray-500">View and manage all users</div>
-            </div>
-          </button>
-          
-          <button className="p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-            <div className="text-center">
-              <div className="text-2xl mb-2">🏪</div>
-              <div className="text-sm font-medium text-gray-900">Pending Sellers</div>
-              <div className="text-xs text-gray-500">Review seller applications</div>
-            </div>
-          </button>
-          
-          <button className="p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-            <div className="text-center">
-              <div className="text-2xl mb-2">📧</div>
-              <div className="text-sm font-medium text-gray-900">Send Email</div>
-              <div className="text-xs text-gray-500">Send notifications to users</div>
-            </div>
-          </button>
+      {/* Quick actions */}
+      <div className="card p-6">
+        <h2 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Quick Actions</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {[
+            { emoji: '👥', title: 'Manage Users', desc: 'View and manage all users', href: '/dashboard/admin/users' },
+            { emoji: '🏪', title: 'Pending Sellers', desc: 'Review seller applications', href: '/dashboard/admin/sellers' },
+            { emoji: '📧', title: 'Send Email', desc: 'Send notifications to users', href: '/dashboard/admin/emails' },
+          ].map(({ emoji, title, desc, href }) => (
+            <a key={href} href={href}
+              className="p-4 rounded-xl border border-[var(--border)] hover:border-[var(--accent-300)] hover:bg-[var(--accent-50)] transition-all text-center block">
+              <div className="text-2xl mb-2">{emoji}</div>
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{desc}</p>
+            </a>
+          ))}
         </div>
       </div>
 
-      {/* Recent Activity */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Recent Activity</h2>
+      {/* Recent activity */}
+      <div className="card p-6">
+        <h2 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Recent Activity</h2>
         <div className="space-y-3">
-          <div className="flex items-center space-x-3">
-            <div className="flex-shrink-0 w-2 h-2 bg-green-500 rounded-full"></div>
-            <div className="flex-1 text-sm text-gray-600">New user registration: john@example.com</div>
-            <div className="text-xs text-gray-400">2 hours ago</div>
-          </div>
-          <div className="flex items-center space-x-3">
-            <div className="flex-shrink-0 w-2 h-2 bg-yellow-500 rounded-full"></div>
-            <div className="flex-1 text-sm text-gray-600">Seller application pending review</div>
-            <div className="text-xs text-gray-400">4 hours ago</div>
-          </div>
-          <div className="flex items-center space-x-3">
-            <div className="flex-shrink-0 w-2 h-2 bg-blue-500 rounded-full"></div>
-            <div className="flex-1 text-sm text-gray-600">New product added: Gaming Mouse</div>
-            <div className="text-xs text-gray-400">6 hours ago</div>
-          </div>
+          {[
+            { dot: 'var(--accent-500)', text: 'New user registration: john@example.com', time: '2 hours ago' },
+            { dot: '#f59e0b',            text: 'Seller application pending review',          time: '4 hours ago' },
+            { dot: '#3b82f6',            text: 'New product added: Gaming Mouse',            time: '6 hours ago' },
+          ].map((item, i) => (
+            <div key={i} className="flex items-center gap-3 text-sm">
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: item.dot }} />
+              <span className="flex-1" style={{ color: 'var(--text-secondary)' }}>{item.text}</span>
+              <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>{item.time}</span>
+            </div>
+          ))}
         </div>
       </div>
     </div>

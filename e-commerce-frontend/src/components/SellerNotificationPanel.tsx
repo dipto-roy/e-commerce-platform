@@ -1,10 +1,33 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, X, CheckCircle, AlertCircle, Info, Package, DollarSign, ShoppingCart, Eye, Trash2 } from 'lucide-react';
+import { Bell, X, CheckCircle, Info, Package, DollarSign, ShoppingCart, Eye, Trash2 } from 'lucide-react';
 import { useNotifications } from '@/contexts/NotificationContext';
 
 interface NotificationPanelProps {
   className?: string;
+}
+
+const TYPE_ICON: Record<string, React.ReactNode> = {
+  order:   <ShoppingCart className="w-4 h-4" />,
+  payment: <DollarSign   className="w-4 h-4" />,
+  product: <Package      className="w-4 h-4" />,
+  system:  <Info         className="w-4 h-4" />,
+};
+
+const TYPE_COLOR: Record<string, { bg: string; color: string }> = {
+  order:   { bg: 'var(--accent-50)',    color: 'var(--accent-600)' },
+  payment: { bg: '#ecfdf5',             color: '#059669' },
+  product: { bg: '#fff7ed',             color: '#ea580c' },
+  system:  { bg: 'var(--bg-secondary)', color: 'var(--text-secondary)' },
+};
+
+function formatTimeAgo(timestamp: Date): string {
+  const diff = Date.now() - new Date(timestamp).getTime();
+  const m = Math.floor(diff / 60000), h = Math.floor(diff / 3600000), d = Math.floor(diff / 86400000);
+  if (m < 1) return 'Just now';
+  if (m < 60) return `${m}m ago`;
+  if (h < 24) return `${h}h ago`;
+  return `${d}d ago`;
 }
 
 const SellerNotificationPanel: React.FC<NotificationPanelProps> = ({ className = '' }) => {
@@ -13,82 +36,21 @@ const SellerNotificationPanel: React.FC<NotificationPanelProps> = ({ className =
   const [showAll, setShowAll] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Close panel when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
+    const handle = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) setIsOpen(false);
     };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    if (isOpen) document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
   }, [isOpen]);
 
-  // Auto-close panel when no notifications
   useEffect(() => {
-    if (notifications.length === 0 && isOpen) {
-      setIsOpen(false);
-    }
+    if (notifications.length === 0 && isOpen) setIsOpen(false);
   }, [notifications.length, isOpen]);
 
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'order':
-        return <ShoppingCart className="w-5 h-5 text-blue-400" />;
-      case 'payment':
-        return <DollarSign className="w-5 h-5 text-green-400" />;
-      case 'product':
-        return <Package className="w-5 h-5 text-purple-400" />;
-      case 'system':
-        return <Info className="w-5 h-5 text-gray-400" />;
-      default:
-        return <AlertCircle className="w-5 h-5 text-yellow-400" />;
-    }
-  };
-
-  const getNotificationBgColor = (type: string, read: boolean) => {
-    const baseOpacity = read ? 'bg-opacity-30' : 'bg-opacity-50';
-    switch (type) {
-      case 'order':
-        return `bg-blue-900 ${baseOpacity}`;
-      case 'payment':
-        return `bg-green-900 ${baseOpacity}`;
-      case 'product':
-        return `bg-purple-900 ${baseOpacity}`;
-      case 'system':
-        return `bg-gray-800 ${baseOpacity}`;
-      default:
-        return `bg-yellow-900 ${baseOpacity}`;
-    }
-  };
-
-  const formatTimeAgo = (timestamp: Date) => {
-    const now = new Date();
-    const diff = now.getTime() - new Date(timestamp).getTime();
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    return `${days}d ago`;
-  };
-
   const handleNotificationClick = (notification: any) => {
-    if (!notification.read) {
-      markAsRead(notification.id);
-    }
-    
-    // Auto-navigate or perform action based on notification type
+    if (!notification.read) markAsRead(notification.id);
     if (notification.type === 'order' && notification.data?.orderId) {
-      // Could navigate to specific order
       console.log(`Navigate to order ${notification.data.orderId}`);
     }
   };
@@ -96,162 +58,147 @@ const SellerNotificationPanel: React.FC<NotificationPanelProps> = ({ className =
   const displayNotifications = showAll ? notifications : notifications.slice(0, 10);
 
   return (
-    <div className={`relative ${className}`} ref={panelRef}>
-      {/* Bell Icon Button */}
+    <div className={`relative inline-block ${className}`} ref={panelRef}>
+      {/* Bell button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-gray-400 hover:text-white transition-all duration-200 hover:bg-gray-700 rounded-full group"
+        className="relative p-2 rounded-full transition-colors hover:bg-[var(--bg-secondary)]"
         title="Notifications"
       >
-        <Bell className="w-6 h-6 group-hover:animate-pulse" />
-        
-        {/* Unread Count Badge */}
+        <Bell className="w-5 h-5" style={{ color: unreadCount > 0 ? 'var(--accent-600)' : 'var(--text-secondary)' }} />
+
+        {/* Unread badge */}
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold animate-pulse">
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </span>
-        )}
-        
-        {/* Pulse Animation for New Notifications */}
-        {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-400 rounded-full h-5 w-5 animate-ping opacity-75"></span>
+          <>
+            <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-0.5">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+            <span className="absolute -top-1.5 -right-1.5 bg-red-400 rounded-full min-w-[18px] h-[18px] animate-ping opacity-50" />
+          </>
         )}
       </button>
 
-      {/* Notification Panel */}
+      {/* Panel */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-96 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl z-50 max-h-96 overflow-hidden">
-          {/* Header */}
-          <div className="p-4 border-b border-gray-700 bg-gray-750">
-            <div className="flex justify-between items-center">
+        <>
+          <div className="absolute right-0 mt-2 w-80 card overflow-hidden shadow-xl z-[100]">
+            {/* Header */}
+            <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between"
+              style={{ background: 'var(--bg-secondary)' }}>
               <div>
-                <h3 className="text-white font-semibold text-lg">Notifications</h3>
-                <p className="text-gray-400 text-sm">
+                <h3 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>Notifications</h3>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                   {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up!'}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 {notifications.length > 0 && (
                   <>
-                    <button
-                      onClick={markAllAsRead}
-                      className="text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-700 transition-colors"
-                      title="Mark all as read"
-                    >
-                      <CheckCircle className="w-4 h-4" />
-                      Mark All Read
+                    <button onClick={markAllAsRead} className="btn btn-icon btn-ghost" title="Mark all read">
+                      <CheckCircle className="w-4 h-4" style={{ color: 'var(--accent-600)' }} />
                     </button>
-                    <button
-                      onClick={clearAllNotifications}
-                      className="text-red-400 hover:text-red-300 text-sm flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-700 transition-colors"
-                      title="Clear all"
-                    >
+                    <button onClick={clearAllNotifications} className="btn btn-icon btn-ghost text-red-500" title="Clear all">
                       <Trash2 className="w-4 h-4" />
-                      Clear All
                     </button>
                   </>
                 )}
-                <button
-                  onClick={() => setIsOpen(false)}
-                  className="text-gray-400 hover:text-white p-1 rounded hover:bg-gray-700 transition-colors"
-                >
+                <button onClick={() => setIsOpen(false)} className="btn btn-icon btn-ghost">
                   <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
-          </div>
 
-          {/* Notifications List */}
-          <div className="max-h-80 overflow-y-auto">
-            {notifications.length === 0 ? (
-              <div className="p-8 text-center">
-                <Bell className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                <h4 className="text-gray-400 font-medium mb-2">No notifications</h4>
-                <p className="text-gray-500 text-sm">You're all caught up! New notifications will appear here.</p>
-              </div>
-            ) : (
-              <>
-                {displayNotifications.map((notification) => (
-                  <div
-                    key={notification.id}
-                    onClick={() => handleNotificationClick(notification)}
-                    className={`p-4 border-b border-gray-700 hover:bg-gray-700 cursor-pointer transition-all duration-200 ${
-                      !notification.read ? 'border-l-4 border-l-blue-500' : ''
-                    } ${getNotificationBgColor(notification.type, notification.read)}`}
-                  >
-                    <div className="flex items-start gap-3">
-                      {/* Icon */}
-                      <div className="flex-shrink-0 mt-1">
-                        {getNotificationIcon(notification.type)}
-                      </div>
-                      
-                      {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start">
-                          <h4 className={`font-medium ${notification.read ? 'text-gray-300' : 'text-white'}`}>
-                            {notification.title}
-                          </h4>
-                          <div className="flex items-center gap-2 ml-2">
-                            <span className="text-xs text-gray-500 whitespace-nowrap">
-                              {formatTimeAgo(notification.timestamp)}
-                            </span>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                clearNotification(notification.id);
-                              }}
-                              className="text-gray-500 hover:text-red-400 transition-colors"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
+            {/* List */}
+            <div className="max-h-72 overflow-y-auto">
+              {notifications.length === 0 ? (
+                <div className="p-8 text-center">
+                  <Bell className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--text-muted)' }} />
+                  <p className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>No notifications</p>
+                  <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                    You're all caught up! New notifications will appear here.
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y divide-[var(--border)]">
+                  {displayNotifications.map(n => {
+                    const ts = TYPE_COLOR[n.type] ?? TYPE_COLOR.system;
+                    return (
+                      <div
+                        key={n.id}
+                        onClick={() => handleNotificationClick(n)}
+                        className={`px-4 py-3 cursor-pointer transition-colors hover:bg-[var(--bg-secondary)] ${
+                          !n.read ? 'border-l-4 border-l-[var(--accent-500)] bg-[var(--accent-50)]' : ''
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          {/* Icon */}
+                          <div className="p-1.5 rounded-full shrink-0"
+                            style={{ background: ts.bg, color: ts.color }}>
+                            {TYPE_ICON[n.type] ?? <Bell className="w-4 h-4" />}
+                          </div>
+
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <h4 className={`text-sm line-clamp-1 ${!n.read ? 'font-semibold' : 'font-medium'}`}
+                                style={{ color: 'var(--text-primary)' }}>
+                                {n.title}
+                              </h4>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                  {formatTimeAgo(n.timestamp)}
+                                </span>
+                                <button
+                                  onClick={e => { e.stopPropagation(); clearNotification(n.id); }}
+                                  className="text-[var(--text-muted)] hover:text-red-500 transition-colors"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                            <p className="text-xs mt-0.5 line-clamp-2" style={{ color: 'var(--text-secondary)' }}>
+                              {n.message}
+                            </p>
+
+                            {n.data && (
+                              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                {n.data.orderId && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded"
+                                    style={{ background: 'var(--accent-50)', color: 'var(--accent-600)' }}>
+                                    Order #{n.data.orderId}
+                                  </span>
+                                )}
+                                {n.data.amount && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded"
+                                    style={{ background: '#ecfdf5', color: '#059669' }}>
+                                    ${n.data.amount}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
-                        <p className={`text-sm mt-1 ${notification.read ? 'text-gray-400' : 'text-gray-300'}`}>
-                          {notification.message}
-                        </p>
-                        
-                        {/* Additional Data */}
-                        {notification.data && (
-                          <div className="mt-2 text-xs text-gray-500">
-                            {notification.data.orderId && (
-                              <span className="bg-gray-700 px-2 py-1 rounded mr-2">
-                                Order #{notification.data.orderId}
-                              </span>
-                            )}
-                            {notification.data.amount && (
-                              <span className="bg-green-700 px-2 py-1 rounded mr-2">
-                                ${notification.data.amount}
-                              </span>
-                            )}
-                          </div>
-                        )}
                       </div>
-                    </div>
-                  </div>
-                ))}
-                
-                {/* Show More Button */}
-                {notifications.length > 10 && !showAll && (
-                  <button
-                    onClick={() => setShowAll(true)}
-                    className="w-full p-3 text-blue-400 hover:text-blue-300 hover:bg-gray-700 transition-colors text-sm"
-                  >
-                    Show {notifications.length - 10} more notifications
-                  </button>
-                )}
-                
-                {showAll && notifications.length > 10 && (
-                  <button
-                    onClick={() => setShowAll(false)}
-                    className="w-full p-3 text-gray-400 hover:text-gray-300 hover:bg-gray-700 transition-colors text-sm"
-                  >
-                    Show less
-                  </button>
-                )}
-              </>
-            )}
+                    );
+                  })}
+
+                  {notifications.length > 10 && (
+                    <button
+                      onClick={() => setShowAll(!showAll)}
+                      className="w-full py-3 text-xs font-medium transition-colors hover:bg-[var(--bg-secondary)] flex items-center justify-center gap-1"
+                      style={{ color: 'var(--accent-600)' }}
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      {showAll ? 'Show less' : `Show ${notifications.length - 10} more`}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+
+          <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+        </>
       )}
     </div>
   );

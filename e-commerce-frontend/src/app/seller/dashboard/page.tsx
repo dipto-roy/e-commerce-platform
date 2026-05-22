@@ -5,253 +5,145 @@ import { useSellerGuard } from '@/hooks/useAuthGuard';
 import { useAuth } from '@/contexts/AuthContextNew';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { sellerDashboardAPI } from '@/utils/api';
-import { Package, DollarSign, ShoppingCart, Users } from 'lucide-react';
+import { Package, DollarSign, ShoppingCart, BarChart3, Mail, HelpCircle, Plus, AlertTriangle } from 'lucide-react';
 import SellerNotificationBell from '@/components/SellerNotificationBell';
 import NotificationPopupManager from '@/components/NotificationPopupManager';
 
 interface DashboardStats {
-  seller: {
-    id: number;
-    username: string;
-    fullName: string;
-    phone: string;
-    isActive: boolean;
-    joinedAt: string;
-  };
+  seller: { id: number; username: string; fullName: string; phone: string; isActive: boolean; joinedAt: string };
   analytics: {
-    products: {
-      totalProducts: number;
-      activeProducts: number;
-      inactiveProducts: number;
-      totalStock: number;
-    };
+    products: { totalProducts: number; activeProducts: number; inactiveProducts: number; totalStock: number };
     orders: {
-      totalOrders: number;
-      pendingOrders: number;
-      confirmedOrders: number;
-      shippedOrders: number;
-      deliveredOrders: number;
-      cancelledOrders: number;
-      totalRevenue: number;
-      averageOrderValue: number;
+      totalOrders: number; pendingOrders: number; confirmedOrders: number;
+      shippedOrders: number; deliveredOrders: number; cancelledOrders: number;
+      totalRevenue: number; averageOrderValue: number;
     };
-    financial: {
-      totalEarnings: number;
-      pendingPayouts: number;
-      completedPayouts: number;
-      platformFees: number;
-      monthlyEarnings: number;
-    };
+    financial: { totalEarnings: number; pendingPayouts: number; completedPayouts: number; platformFees: number; monthlyEarnings: number };
   };
   recentOrders: any[];
 }
 
+const formatCurrency = (value: any) => {
+  const n = Number(value || 0);
+  return isNaN(n) ? '0.00' : n.toFixed(2);
+};
+
+const QUICK_LINKS = [
+  { label: 'My Products',  desc: 'Manage product listings',        href: '/seller/products',    icon: Package,      key: 'products' },
+  { label: 'Add Product',  desc: 'List new products for sale',     href: '/seller/products/new',icon: Plus,         key: 'add' },
+  { label: 'Orders',       desc: 'View and manage your orders',    href: '/seller/orders',      icon: ShoppingCart, key: 'orders' },
+  { label: 'Mail Center',  desc: 'Communicate with customers',     href: '/seller/mail',        icon: Mail,         key: 'mail' },
+  { label: 'Analytics',   desc: 'View your sales analytics',      href: '/seller/analytics',   icon: BarChart3,    key: 'analytics' },
+  { label: 'Support',     desc: 'Get help with selling',          href: '/support',            icon: HelpCircle,   key: 'support', noVerify: true },
+];
+
 export default function SellerDashboard() {
   const { user, loading, isAuthorized } = useSellerGuard();
   const { logout } = useAuth();
-  const { notifications, unreadCount, isConnected } = useNotifications();
+  const { isConnected } = useNotifications();
   const router = useRouter();
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
 
-  // Safe currency formatter
-  const formatCurrency = (value: any): string => {
-    const numValue = Number(value || 0);
-    return isNaN(numValue) ? '0.00' : numValue.toFixed(2);
-  };
-
-  // Debug notification system
-  useEffect(() => {
-    console.log('🔔 Seller Dashboard - Notification Debug:', {
-      userId: user?.id,
-      userRole: user?.role,
-      notificationCount: notifications.length,
-      unreadCount,
-      isConnected,
-      recentNotifications: notifications.slice(0, 3).map(n => ({
-        id: n.id,
-        type: n.type,
-        title: n.title,
-        timestamp: n.timestamp
-      }))
-    });
-  }, [user, notifications, unreadCount, isConnected]);
-
-  // Fetch dashboard statistics
   const fetchDashboardStats = async () => {
-    if (!user || !user.isVerified) {
-      console.log('❌ Cannot fetch dashboard stats: User not verified');
-      return;
-    }
-    
+    if (!user?.isVerified) return;
     try {
       setStatsLoading(true);
       const response = await sellerDashboardAPI.getDashboardOverview();
       setDashboardStats(response.data as DashboardStats);
-      console.log('📊 Dashboard stats loaded successfully');
-    } catch (error: any) {
-      console.error('❌ Error fetching dashboard stats:', error.response?.status || error.message);
-      
-      if (error.response?.status === 403) {
-        console.error('🚨 403 Forbidden - Check user permissions');
-      }
-    } finally {
-      setStatsLoading(false);
-    }
+    } catch { /* silent */ }
+    finally { setStatsLoading(false); }
   };
 
-  // Load dashboard data when component mounts and user is verified
   useEffect(() => {
-    if (user && user.isVerified) {
-      console.log('🔍 Seller Dashboard - Current User Info:', {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-        isVerified: user.isVerified
-      });
+    if (user?.isVerified) {
       fetchDashboardStats();
-      
-      // Auto-refresh every 30 seconds for live revenue count
-      const interval = setInterval(() => {
-        fetchDashboardStats();
-      }, 30000);
-      
+      const interval = setInterval(fetchDashboardStats, 30000);
       return () => clearInterval(interval);
     }
   }, [user]);
 
-  const handleLogout = async () => {
-    await logout();
-    router.push('/login');
-  };
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-white">Loading...</div>
+      <div className="page-wrapper flex items-center justify-center">
+        <span className="spinner" style={{ width: '3rem', height: '3rem', borderWidth: '3px' }} />
       </div>
     );
   }
 
   if (!isAuthorized) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <div className="text-white text-center">
-          <h2 className="text-2xl font-bold mb-4">Unauthorized</h2>
-          <p>You don't have permission to access this page.</p>
+      <div className="page-wrapper flex items-center justify-center p-6">
+        <div className="card p-8 max-w-sm text-center">
+          <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Unauthorized</h2>
+          <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>You don't have permission to access this page.</p>
+          <button onClick={() => router.push('/login')} className="btn btn-primary btn-full">Go to Login</button>
         </div>
       </div>
     );
   }
 
+  const stats = dashboardStats?.analytics;
+
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="page-wrapper">
       {/* Header */}
-      <header className="bg-gray-800 border-b border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
+      <div className="page-header">
+        <div className="container-app">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-bold text-white">Seller Dashboard</h1>
-              <p className="text-gray-400">Welcome back, {user?.fullName || user?.username}!</p>
+              <h1 className="section-title">Seller Dashboard</h1>
+              <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+                Welcome back, {user?.fullName || user?.username}!
+              </p>
             </div>
-            <div className="flex items-center gap-4">
-              {/* Enhanced Seller Notification Bell with Popup Messages */}
-              <SellerNotificationBell 
-                className="relative"
-              />
-
-              {/* Logout Button */}
-              <button
-                onClick={handleLogout}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-              >
-                Logout
-              </button>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <SellerNotificationBell />
+                <span className={`text-xs font-semibold ${isConnected ? 'text-[var(--accent-600)]' : 'text-red-500'}`}>
+                  ● {isConnected ? 'Live' : 'Offline'}
+                </span>
+              </div>
+              <button onClick={async () => { await logout(); router.push('/login'); }}
+                className="btn btn-danger btn-sm">Logout</button>
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
-      {/* Debug Panel - Remove in production */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="bg-yellow-900 border-b border-yellow-600 p-4">
-          <div className="max-w-7xl mx-auto">
-            <h3 className="text-yellow-100 font-bold mb-2">🔧 Notification Debug Panel</h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
-              <div className="bg-yellow-800 p-2 rounded">
-                <strong className="text-yellow-100">User ID:</strong>
-                <p className="text-yellow-200">{user?.id || 'Not set'}</p>
-              </div>
-              <div className="bg-yellow-800 p-2 rounded">
-                <strong className="text-yellow-100">Role:</strong>
-                <p className="text-yellow-200">{user?.role || 'Not set'}</p>
-              </div>
-              <div className="bg-yellow-800 p-2 rounded">
-                <strong className="text-yellow-100">Connection:</strong>
-                <p className={`${isConnected ? 'text-green-300' : 'text-red-300'}`}>
-                  {isConnected ? '✅ Connected' : '❌ Disconnected'}
-                </p>
-              </div>
-              <div className="bg-yellow-800 p-2 rounded">
-                <strong className="text-yellow-100">Notifications:</strong>
-                <p className="text-yellow-200">{notifications.length} total, {unreadCount} unread</p>
-              </div>
-            </div>
-            {notifications.length > 0 && (
-              <div className="mt-2">
-                <strong className="text-yellow-100">Recent Notifications:</strong>
-                <div className="mt-1 space-y-1">
-                  {notifications.slice(0, 3).map(n => (
-                    <div key={n.id} className="text-xs text-yellow-200 bg-yellow-800 p-1 rounded">
-                      [{n.type}] {n.title} - {new Date(n.timestamp).toLocaleTimeString()}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+      <div className="container-app py-8 space-y-6">
+        {/* Verification alert */}
+        {user && !user.isVerified && (
+          <div className="alert alert-warning">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <p className="text-sm">
+              Your seller account is being reviewed. You'll receive an email once verified.
+            </p>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Verification Status Alert */}
-      {user && !user.isVerified && (
-        <div className="bg-yellow-600 border-l-4 border-yellow-400 p-4">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm text-yellow-200">
-                  Your seller account is being reviewed by our admin team. You'll receive an email notification once your account is verified.
-                </p>
-              </div>
+        {/* Seller info */}
+        <div className="card p-6">
+          <h2 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Seller Information</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <div className="space-y-2">
+              <p><span className="font-medium" style={{ color: 'var(--text-secondary)' }}>Username:</span>{' '}
+                <span style={{ color: 'var(--text-primary)' }}>{user?.username}</span></p>
+              <p><span className="font-medium" style={{ color: 'var(--text-secondary)' }}>Email:</span>{' '}
+                <span style={{ color: 'var(--text-primary)' }}>{user?.email}</span></p>
+              <p><span className="font-medium" style={{ color: 'var(--text-secondary)' }}>Full Name:</span>{' '}
+                <span style={{ color: 'var(--text-primary)' }}>{user?.fullName || 'Not provided'}</span></p>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Seller Info Card */}
-        <div className="bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
-          <h2 className="text-xl font-semibold text-white mb-4">Seller Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300">
-            <div>
-              <p><strong>Username:</strong> {user?.username}</p>
-              <p><strong>Email:</strong> {user?.email}</p>
-              <p><strong>Full Name:</strong> {user?.fullName || 'Not provided'}</p>
-            </div>
-            <div>
-              <p><strong>Account Status:</strong>
-                <span className={`ml-2 px-2 py-1 rounded-full text-xs ${user?.isActive ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+            <div className="space-y-2">
+              <p className="flex items-center gap-2">
+                <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>Account:</span>
+                <span className={user?.isActive ? 'badge badge-green' : 'badge badge-red'}>
                   {user?.isActive ? 'Active' : 'Inactive'}
                 </span>
               </p>
-              <p><strong>Verification Status:</strong>
-                <span className={`ml-2 px-2 py-1 rounded-full text-xs ${user?.isVerified ? 'bg-green-600 text-white' : 'bg-yellow-600 text-white'}`}>
+              <p className="flex items-center gap-2">
+                <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>Verification:</span>
+                <span className={user?.isVerified ? 'badge badge-green' : 'badge badge-yellow'}>
                   {user?.isVerified ? 'Verified' : 'Pending'}
                 </span>
               </p>
@@ -259,209 +151,87 @@ export default function SellerDashboard() {
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
-            <div className="flex items-center justify-between">
+        {/* Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { label: 'Total Products', value: stats?.products?.totalProducts, icon: Package,      color: 'var(--accent-500)' },
+            { label: 'Total Revenue',  value: `$${formatCurrency(stats?.orders?.totalRevenue)}`, icon: DollarSign,  color: '#10b981' },
+            { label: 'Pending Orders', value: stats?.orders?.pendingOrders,   icon: ShoppingCart, color: '#f59e0b' },
+            { label: 'Total Orders',   value: stats?.orders?.totalOrders,     icon: BarChart3,    color: '#3b82f6' },
+          ].map(({ label, value, icon: Icon, color }) => (
+            <div key={label} className="card p-5 flex items-center gap-4">
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: `${color}1a` }}>
+                <Icon className="w-5 h-5" style={{ color }} />
+              </div>
               <div>
-                <p className="text-gray-400 text-sm">Total Products</p>
-                <p className="text-2xl font-bold text-white">
-                  {statsLoading ? '...' : dashboardStats?.analytics?.products?.totalProducts || 0}
+                <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>{label}</p>
+                <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                  {statsLoading ? '…' : (value ?? 0)}
                 </p>
               </div>
-              <Package className="w-8 h-8 text-blue-500" />
             </div>
-          </div>
-          <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm">Total Revenue</p>
-                <p className="text-2xl font-bold text-white">
-                  ${statsLoading ? '...' : formatCurrency(dashboardStats?.analytics?.orders?.totalRevenue)}
-                </p>
-              </div>
-              <DollarSign className="w-8 h-8 text-green-500" />
-            </div>
-          </div>
-          <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm">Pending Orders</p>
-                <p className="text-2xl font-bold text-white">
-                  {statsLoading ? '...' : dashboardStats?.analytics?.orders?.pendingOrders || 0}
-                </p>
-              </div>
-              <ShoppingCart className="w-8 h-8 text-yellow-500" />
-            </div>
-          </div>
-          <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm">Total Orders</p>
-                <p className="text-2xl font-bold text-white">
-                  {statsLoading ? '...' : dashboardStats?.analytics?.orders?.totalOrders || 0}
-                </p>
-              </div>
-              <Users className="w-8 h-8 text-purple-500" />
-            </div>
-          </div>
+          ))}
         </div>
 
-        {/* Dashboard Features */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {/* My Products */}
-          <div className="bg-gray-800 rounded-lg shadow-lg p-6">
-            <h3 className="text-lg font-semibold text-white mb-3">My Products</h3>
-            <p className="text-gray-400 mb-4">Manage your product listings</p>
-            <button
-              onClick={() => router.push('/seller/products')}
-              disabled={!user?.isVerified}
-              className={`w-full px-4 py-2 rounded-md transition-colors ${
-                user?.isVerified
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              {user?.isVerified ? 'Manage Products' : 'Verification Required'}
-            </button>
-          </div>
-
-          {/* Add Product */}
-          <div className="bg-gray-800 rounded-lg shadow-lg p-6">
-            <h3 className="text-lg font-semibold text-white mb-3">Add Product</h3>
-            <p className="text-gray-400 mb-4">List new products for sale</p>
-            <button
-              onClick={() => router.push('/seller/products/new')}
-              disabled={!user?.isVerified}
-              className={`w-full px-4 py-2 rounded-md transition-colors ${
-                user?.isVerified
-                  ? 'bg-green-600 text-white hover:bg-green-700'
-                  : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              {user?.isVerified ? 'Add Product' : 'Verification Required'}
-            </button>
-          </div>
-
-          {/* Orders */}
-          <div className="bg-gray-800 rounded-lg shadow-lg p-6">
-            <h3 className="text-lg font-semibold text-white mb-3">Orders</h3>
-            <p className="text-gray-400 mb-4">View and manage your orders</p>
-            <button
-              onClick={() => router.push('/seller/orders')}
-              disabled={!user?.isVerified}
-              className={`w-full px-4 py-2 rounded-md transition-colors ${
-                user?.isVerified
-                  ? 'bg-purple-600 text-white hover:bg-purple-700'
-                  : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              {user?.isVerified ? 'View Orders' : 'Verification Required'}
-            </button>
-          </div>
-
-          {/* Mail Center */}
-          <div className="bg-gray-800 rounded-lg shadow-lg p-6">
-            <h3 className="text-lg font-semibold text-white mb-3">Mail Center</h3>
-            <p className="text-gray-400 mb-4">Communicate with your customers</p>
-            <button
-              onClick={() => router.push('/seller/mail')}
-              disabled={!user?.isVerified}
-              className={`w-full px-4 py-2 rounded-md transition-colors ${
-                user?.isVerified
-                  ? 'bg-pink-600 text-white hover:bg-pink-700'
-                  : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              {user?.isVerified ? 'Send Messages' : 'Verification Required'}
-            </button>
-          </div>
-
-          {/* Analytics */}
-          <div className="bg-gray-800 rounded-lg shadow-lg p-6">
-            <h3 className="text-lg font-semibold text-white mb-3">Analytics</h3>
-            <p className="text-gray-400 mb-4">View your sales analytics</p>
-            <button
-              onClick={() => router.push('/seller/analytics')}
-              disabled={!user?.isVerified}
-              className={`w-full px-4 py-2 rounded-md transition-colors ${
-                user?.isVerified
-                  ? 'bg-orange-600 text-white hover:bg-orange-700'
-                  : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              {user?.isVerified ? 'View Analytics' : 'Verification Required'}
-            </button>
-          </div>
-
-          {/* Help & Support */}
-          <div className="bg-gray-800 rounded-lg shadow-lg p-6">
-            <h3 className="text-lg font-semibold text-white mb-3">Help & Support</h3>
-            <p className="text-gray-400 mb-4">Get help with selling</p>
-            <button
-              onClick={() => router.push('/support')}
-              className="w-full px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
-            >
-              Contact Support
-            </button>
-          </div>
+        {/* Quick links */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {QUICK_LINKS.map(({ label, desc, href, icon: Icon, key, noVerify }) => {
+            const locked = !noVerify && !user?.isVerified;
+            return (
+              <div key={key}
+                className={`card p-5 flex flex-col ${locked ? 'opacity-60' : 'card-interactive cursor-pointer'}`}
+                onClick={() => !locked && router.push(href)}>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3"
+                  style={{ background: 'var(--accent-50)' }}>
+                  <Icon className="w-5 h-5" style={{ color: 'var(--accent-600)' }} />
+                </div>
+                <p className="font-semibold text-sm mb-1" style={{ color: 'var(--text-primary)' }}>{label}</p>
+                <p className="text-xs flex-1" style={{ color: 'var(--text-muted)' }}>{desc}</p>
+                {locked && (
+                  <p className="text-xs mt-3 font-medium" style={{ color: '#f59e0b' }}>
+                    ⚠ Verification required
+                  </p>
+                )}
+              </div>
+            );
+          })}
         </div>
 
-        {/* Quick Stats */}
-        <div className="bg-gray-800 rounded-lg shadow-lg p-6">
-          <h2 className="text-xl font-semibold text-white mb-4">Seller Overview</h2>
+        {/* Overview */}
+        <div className="card p-6">
+          <h2 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Seller Overview</h2>
           {user?.isVerified ? (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-blue-400">
-                  {statsLoading ? '...' : dashboardStats?.analytics?.products?.totalProducts || 0}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 text-center">
+              {[
+                { label: 'Products Listed',  value: stats?.products?.totalProducts, color: 'var(--accent-600)' },
+                { label: 'Orders Received',  value: stats?.orders?.totalOrders,     color: '#10b981' },
+                { label: 'Total Revenue',    value: `$${formatCurrency(stats?.orders?.totalRevenue)}`, color: '#3b82f6' },
+                { label: 'Recent Orders',    value: dashboardStats?.recentOrders?.length || 0, color: '#f59e0b' },
+              ].map(({ label, value, color }) => (
+                <div key={label}>
+                  <p className="text-3xl font-bold" style={{ color }}>
+                    {statsLoading ? '…' : value}
+                  </p>
+                  <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
                 </div>
-                <div className="text-gray-400">Products Listed</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-green-400">
-                  {statsLoading ? '...' : dashboardStats?.analytics?.orders?.totalOrders || 0}
-                </div>
-                <div className="text-gray-400">Orders Received</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-purple-400">
-                  ${statsLoading ? '...' : formatCurrency(dashboardStats?.analytics?.orders?.totalRevenue)}
-                </div>
-                <div className="text-gray-400">Total Revenue</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-orange-400">
-                  {statsLoading ? '...' : dashboardStats?.recentOrders?.length || 0}
-                </div>
-                <div className="text-gray-400">Recent Orders</div>
-              </div>
+              ))}
             </div>
           ) : (
             <div className="text-center py-8">
-              <div className="text-yellow-400 mb-4">
-                <svg className="h-16 w-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold text-white mb-2">Account Verification Pending</h3>
-              <p className="text-gray-400">
-                Your seller account is being reviewed by our admin team. 
-                You'll receive an email notification once your account is verified.
+              <AlertTriangle className="w-14 h-14 mx-auto mb-4" style={{ color: '#f59e0b' }} />
+              <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                Account Verification Pending
+              </h3>
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                Your seller account is being reviewed. You'll receive an email once verified.
               </p>
             </div>
           )}
         </div>
-      </main>
+      </div>
 
-      {/* Notification Popup Manager for React Popup Messages */}
-      <NotificationPopupManager
-        enabled={true}
-        maxPopups={3}
-        defaultDuration={6000}
-        position="top-right"
-        playSound={true}
-      />
+      <NotificationPopupManager enabled maxPopups={3} defaultDuration={6000} position="top-right" playSound />
     </div>
   );
 }

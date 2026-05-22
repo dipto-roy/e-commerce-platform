@@ -320,10 +320,11 @@ export class OrderService {
         status: PaymentStatus.PENDING,
         paymentMethod: {
           type: paymentMethod,
-          details: { 
-            note: paymentMethod === 'stripe' 
-              ? 'Cart order - Card Payment via Stripe' 
-              : 'Cart order - Cash on Delivery' 
+          details: {
+            note:
+              paymentMethod === 'stripe'
+                ? 'Cart order - Card Payment via Stripe'
+                : 'Cart order - Cash on Delivery',
           },
         },
       });
@@ -569,9 +570,7 @@ export class OrderService {
 
     // 2. Validate order is for Stripe payment
     if (order.paymentMethod !== 'stripe') {
-      throw new BadRequestException(
-        'Order is not set up for Stripe payment',
-      );
+      throw new BadRequestException('Order is not set up for Stripe payment');
     }
 
     // 3. Check if payment intent already exists

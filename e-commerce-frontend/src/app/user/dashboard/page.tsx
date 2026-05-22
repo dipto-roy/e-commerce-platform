@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useUserGuard } from '@/hooks/useAuthGuard';
 import { useAuth } from '@/contexts/AuthContextNew';
 import { userDashboardAPI } from '@/utils/api';
+import { ShoppingBag, Package, DollarSign, Clock, LogOut, User, ArrowRight } from 'lucide-react';
 
 interface UserStats {
   totalOrders: number;
@@ -25,12 +26,7 @@ export default function UserDashboard() {
   useEffect(() => {
     if (user && isAuthorized && !loading) {
       fetchUserStats();
-      
-      // Auto-refresh every 30 seconds for live count
-      const interval = setInterval(() => {
-        fetchUserStats();
-      }, 30000);
-      
+      const interval = setInterval(fetchUserStats, 30000);
       return () => clearInterval(interval);
     }
   }, [user, isAuthorized, loading]);
@@ -40,156 +36,129 @@ export default function UserDashboard() {
       setStatsLoading(true);
       const response = await userDashboardAPI.getDashboardStats();
       setStats(response.data as UserStats);
-    } catch (error) {
-      console.error('Failed to fetch user stats:', error);
-      // Set default values on error
-      setStats({
-        totalOrders: 0,
-        completedOrders: 0,
-        pendingOrders: 0,
-        cancelledOrders: 0,
-        totalAmount: '0.00',
-        totalSpent: '0.00',
-        recentOrders: []
-      });
+    } catch {
+      setStats({ totalOrders: 0, completedOrders: 0, pendingOrders: 0, cancelledOrders: 0, totalAmount: '0.00', totalSpent: '0.00', recentOrders: [] });
     } finally {
       setStatsLoading(false);
     }
   };
 
+  const handleLogout = async () => { await logout(); router.push('/login'); };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-white">Loading...</div>
+      <div className="page-wrapper flex items-center justify-center">
+        <span className="spinner" style={{ width: '3rem', height: '3rem', borderWidth: '3px' }} />
       </div>
     );
   }
 
-  if (!isAuthorized) {
+  if (!isAuthorized || !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <div className="text-white text-center">
-          <h2 className="text-2xl font-bold mb-4">Unauthorized</h2>
-          <p>You don't have permission to access this page.</p>
+      <div className="page-wrapper flex items-center justify-center p-6">
+        <div className="card p-8 max-w-sm text-center">
+          <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Unauthorized</h2>
+          <button onClick={() => router.push('/login')} className="btn btn-primary btn-full mt-4">
+            Go to Login
+          </button>
         </div>
       </div>
     );
   }
 
-  if (!user) {
-    return null; // Will redirect to login
-  }
+  const STAT_CARDS = [
+    { label: 'Total Orders',     value: stats?.totalOrders ?? 0,     icon: Package,     color: 'var(--accent-500)' },
+    { label: 'Completed',        value: stats?.completedOrders ?? 0,  icon: ShoppingBag, color: '#10b981' },
+    { label: 'Pending',          value: stats?.pendingOrders ?? 0,    icon: Clock,       color: '#f59e0b' },
+    { label: 'Total Spent',      value: `$${parseFloat(stats?.totalSpent || '0').toFixed(2)}`, icon: DollarSign, color: '#3b82f6' },
+  ];
 
-  const handleLogout = async () => {
-    await logout();
-    router.push('/login');
-  };
+  const QUICK_ACTIONS = [
+    { label: 'Browse Products',    desc: 'Explore thousands of items',           href: '/products',       icon: ShoppingBag, primary: true },
+    { label: 'My Orders',          desc: 'Track your order history & status',    href: '/user/orders',    icon: Package,     primary: false },
+    { label: 'Profile Settings',   desc: 'Update your account information',      href: '/user/profile',   icon: User,        primary: false },
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-900">
-      {/* Header */}
-      <header className="bg-gray-800 border-b border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
+    <div className="page-wrapper">
+      <div className="page-header">
+        <div className="container-app">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-bold text-white">Customer Dashboard</h1>
-              <p className="text-gray-400">Welcome back, {user.fullName || user.username}!</p>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* User Info Card */}
-        <div className="bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
-          <h2 className="text-xl font-semibold text-white mb-4">Profile Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300">
-            <div>
-              <p><strong>Username:</strong> {user.username}</p>
-              <p><strong>Email:</strong> {user.email}</p>
-            </div>
-            <div>
-              <p><strong>Full Name:</strong> {user.fullName || 'Not provided'}</p>
-              <p><strong>Account Status:</strong> 
-                <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
-                  user.isActive ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
-                }`}>
-                  {user.isActive ? 'Active' : 'Inactive'}
-                </span>
+              <h1 className="section-title">Customer Dashboard</h1>
+              <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                Welcome back, {user.fullName || user.username}!
               </p>
             </div>
-          </div>
-        </div>
-
-        {/* Dashboard Features */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Browse Products */}
-          <div className="bg-gray-800 rounded-lg shadow-lg p-6">
-            <h3 className="text-lg font-semibold text-white mb-3">Browse Products</h3>
-            <p className="text-gray-400 mb-4">Explore our wide range of products</p>
-            <button
-              onClick={() => router.push('/products')}
-              className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-            >
-              View Products
-            </button>
-          </div>
-
-          {/* My Orders */}
-          <div className="bg-gray-800 rounded-lg shadow-lg p-6">
-            <h3 className="text-lg font-semibold text-white mb-3">My Orders</h3>
-            <p className="text-gray-400 mb-4">Track your order history and status</p>
-            <button
-              onClick={() => router.push('/user/orders')}
-              className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-            >
-              View Orders
-            </button>
-          </div>
-
-          {/* Profile Settings */}
-          <div className="bg-gray-800 rounded-lg shadow-lg p-6">
-            <h3 className="text-lg font-semibold text-white mb-3">Profile Settings</h3>
-            <p className="text-gray-400 mb-4">Update your account information</p>
-            <button
-              onClick={() => router.push('/user/profile')}
-              className="w-full px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
-            >
-              Edit Profile
+            <button onClick={handleLogout} className="btn btn-danger btn-sm self-start sm:self-auto">
+              <LogOut className="w-3.5 h-3.5" /> Logout
             </button>
           </div>
         </div>
+      </div>
 
-        {/* Quick Stats */}
-        <div className="mt-8 bg-gray-800 rounded-lg shadow-lg p-6">
-          <h2 className="text-xl font-semibold text-white mb-4">Account Overview</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center">
-              <div className="text-3xl font-bold text-blue-400">
-                {statsLoading ? '...' : stats?.totalOrders || 0}
+      <div className="container-app py-8 space-y-8">
+        {/* Stat cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {STAT_CARDS.map(({ label, value, icon: Icon, color }) => (
+            <div key={label} className="card p-5 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: `${color}18` }}>
+                <Icon className="w-5 h-5" style={{ color }} />
               </div>
-              <div className="text-gray-400">Total Orders</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-green-400">
-                ${statsLoading ? '0.00' : stats?.totalSpent || '0.00'}
+              <div>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{label}</p>
+                <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                  {statsLoading ? '…' : value}
+                </p>
               </div>
-              <div className="text-gray-400">Total Spent</div>
             </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-purple-400">0</div>
-              <div className="text-gray-400">Wishlist Items</div>
-            </div>
+          ))}
+        </div>
+
+        {/* Profile info */}
+        <div className="card p-6">
+          <h2 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Profile Information</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            {[
+              { label: 'Username',   value: user.username },
+              { label: 'Email',      value: user.email },
+              { label: 'Full Name',  value: user.fullName || '—' },
+              { label: 'Status',     value: user.isActive ? 'Active' : 'Inactive', badge: true, ok: user.isActive },
+            ].map(({ label, value, badge, ok }) => (
+              <div key={label} className="flex items-center gap-2">
+                <span className="font-medium" style={{ color: 'var(--text-muted)' }}>{label}:</span>
+                {badge
+                  ? <span className={ok ? 'badge badge-green' : 'badge badge-red'}>{value}</span>
+                  : <span style={{ color: 'var(--text-primary)' }}>{value}</span>
+                }
+              </div>
+            ))}
           </div>
         </div>
-      </main>
+
+        {/* Quick actions */}
+        <div>
+          <h2 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Quick Actions</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {QUICK_ACTIONS.map(({ label, desc, href, icon: Icon, primary }) => (
+              <button key={href} onClick={() => router.push(href)}
+                className={`card p-5 text-left flex items-start gap-4 card-interactive ${primary ? 'border-[var(--accent-200)]' : ''}`}
+                style={primary ? { background: 'var(--accent-50)' } : {}}>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ background: primary ? 'var(--accent-100)' : 'var(--bg-secondary)' }}>
+                  <Icon className="w-5 h-5" style={{ color: primary ? 'var(--accent-600)' : 'var(--text-secondary)' }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{label}</p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{desc}</p>
+                </div>
+                <ArrowRight className="w-4 h-4 shrink-0 mt-1" style={{ color: 'var(--text-muted)' }} />
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
