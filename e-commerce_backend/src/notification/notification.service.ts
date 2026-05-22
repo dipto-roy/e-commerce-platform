@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../users/entities/unified-user.entity';
 import { Role } from '../users/entities/role.enum';
-import * as Pusher from 'pusher';
+import Pusher from 'pusher';
 import { Order } from 'src/order/entities/order.entity';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Notification, NotificationType } from './entities/notification.entity';

@@ -1,0 +1,69 @@
+name: ecommerce-backend-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ecommerce-db-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_DATABASE:-e_commerce}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_DATABASE:-e_commerce}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      target: development
+    container_name: ecommerce-api-dev
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: development
+      DB_HOST: postgres
+      DB_PORT: 5432
+    ports:
+      - "${PORT:-4002}:4002"
+    volumes:
+      # source bind-mount for hot reload; anonymous volume keeps
+      # the container's node_modules (native modules built for Linux)
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # `.ts` edits hot-reload live via the bind-mount above.
+    # `watch` auto-rebuilds the image when dependencies change.
+    develop:
+      watch:
+        - action: rebuild
+          path: package.json
+        - action: rebuild
+          path: package-lock.json
+        - action: rebuild
+          path: Dockerfile
+
+  # Web UI to browse the Postgres database
+  adminer:
+    image: adminer:5
+    container_name: ecommerce-adminer-dev
+    restart: unless-stopped
+    ports:
+      - "${ADMINER_PORT:-8080}:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DESIGN: dracula
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata_dev:

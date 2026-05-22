@@ -1,0 +1,41 @@
+node_modules
+dist
+build
+coverage
+
+# logs
+*.log
+npm-debug.log*
+
+# env / secrets
+.env
+.env.*
+!.env.example
+*_cookies.txt
+cookies*.txt
+*.cookies.txt
+
+# git / editor
+.git
+.gitignore
+.vscode
+.idea
+
+# docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# tests / scripts / docs
+test
+test-*.sh
+*-test.sh
+quick-*.sh
+demo-*.sh
+*.md
+!README.md
+
+# runtime data
+uploads
+image
+public/uploads
