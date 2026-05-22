@@ -50,7 +50,9 @@ function LoginContent() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
-    setFormData({ ...formData, [id]: value });
+    // Trim email; preserve password internal spaces but strip trailing/leading
+    const trimmedValue = id === 'email' ? value.trim() : value;
+    setFormData({ ...formData, [id]: trimmedValue });
     
     // Clear validation errors when user starts typing
     if (validationErrors[id as keyof typeof validationErrors]) {

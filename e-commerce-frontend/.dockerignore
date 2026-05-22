@@ -1,0 +1,39 @@
+# Dependencies
+node_modules
+npm-debug.log*
+
+# Next.js build output
+.next
+out
+
+# Git
+.git
+.gitignore
+
+# Env files (injected at runtime via compose)
+.env
+.env.local
+.env.local.backup
+.env.production.template
+
+# Logs
+*.log
+frontend.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode
+.idea
+*.swp
+*.swo
+
+# Test artifacts
+coverage
+
+# Docs / markdown (not needed in image)
+*.md
+cookies.txt
+test-orders-route.sh

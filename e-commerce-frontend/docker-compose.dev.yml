@@ -1,0 +1,42 @@
+# ─────────────────────────────────────────────────────────────────
+# Development compose
+#   • Source code bind-mounted → any file change hot-reloads
+#   • node_modules kept inside container (named volume)
+#   • .next kept inside container (named volume)
+#   • Env loaded from .env.local (or .env fallback)
+# ─────────────────────────────────────────────────────────────────
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development          # uses the "development" stage
+    container_name: ecommerce-frontend-dev
+    ports:
+      - "3000:3000"
+    volumes:
+      # Bind-mount entire source — changes reflect instantly
+      - .:/app
+      # Isolate node_modules inside the container (named volume)
+      # prevents host node_modules from shadowing container ones
+      - frontend_node_modules:/app/node_modules
+      # Isolate .next cache inside the container
+      - frontend_next_cache:/app/.next
+    env_file:
+      - path: .env.local
+        required: false
+      - path: .env
+        required: false
+    environment:
+      - NODE_ENV=development
+      - NEXT_TELEMETRY_DISABLED=1
+      - WATCHPACK_POLLING=true
+      - CHOKIDAR_USEPOLLING=true
+    restart: unless-stopped
+    # Keep stdin open so Next.js dev server doesn't exit
+    stdin_open: true
+    tty: true
+
+volumes:
+  frontend_node_modules:
+  frontend_next_cache:

@@ -1,9 +1,13 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
-  // Fix workspace root detection
-  outputFileTracingRoot: '/home/dip-roy/e-commerce_project/e-commerce-frontend',
-  
+  // Use dynamic path — works on host and inside Docker (/app)
+  outputFileTracingRoot: path.join(__dirname),
+
+  // Standalone output for production Docker image (set NEXT_OUTPUT=standalone)
+  ...(process.env.NEXT_OUTPUT === 'standalone' && { output: 'standalone' }),
+
   // Environment variables validation
   env: {
     CUSTOM_KEY: process.env.CUSTOM_KEY,

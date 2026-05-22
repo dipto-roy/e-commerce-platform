@@ -256,7 +256,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       console.log('🔐 Attempting login for:', email);
       
-      const response = await apiClient.post<AuthResponse>('/auth/login', { email, password });
+      const response = await apiClient.post<AuthResponse>('/auth/login', { email: email.trim(), password: password.trim() });
       const userData = response.data?.user;
 
       if (userData) {
