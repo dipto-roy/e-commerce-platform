@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as PDFDocument from 'pdfkit';
+import PDFDocument from 'pdfkit';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Order } from '../../order/entities/order.entity';
@@ -76,7 +76,11 @@ export class InvoiceService {
             350,
             130,
           )
-          .text(`Payment Method: ${order.paymentMethod.toUpperCase()}`, 350, 145)
+          .text(
+            `Payment Method: ${order.paymentMethod.toUpperCase()}`,
+            350,
+            145,
+          )
           .text(`Payment Status: ${order.paymentStatus}`, 350, 160);
 
         // Customer Info
@@ -90,10 +94,7 @@ export class InvoiceService {
           .text(`${order.shippingAddress}`, 50, 250, { width: 200 });
 
         // Line separator
-        doc
-          .moveTo(50, 290)
-          .lineTo(550, 290)
-          .stroke();
+        doc.moveTo(50, 290).lineTo(550, 290).stroke();
 
         // Table Headers
         const tableTop = 310;
@@ -109,7 +110,12 @@ export class InvoiceService {
         order.orderItems.forEach((item) => {
           doc
             .fontSize(9)
-            .text(item.product?.name || item.productNameSnapshot, 50, yPosition, { width: 230 })
+            .text(
+              item.product?.name || item.productNameSnapshot,
+              50,
+              yPosition,
+              { width: 230 },
+            )
             .text(String(item.quantity), 300, yPosition)
             .text(
               `$${Number(item.unitPriceSnapshot).toFixed(2)}`,
@@ -139,9 +145,7 @@ export class InvoiceService {
           .text(`$${Number(order.totalAmount).toFixed(2)}`, 480, yPosition);
 
         yPosition += 20;
-        doc
-          .text('Shipping:', 380, yPosition)
-          .text('$0.00', 480, yPosition);
+        doc.text('Shipping:', 380, yPosition).text('$0.00', 480, yPosition);
 
         yPosition += 20;
         doc
@@ -152,18 +156,14 @@ export class InvoiceService {
         // Footer
         doc
           .fontSize(8)
-          .text(
-            'Thank you for your business!',
-            50,
-            700,
-            { align: 'center', width: 500 },
-          )
-          .text(
-            'For support, contact us at support@ecommerce.com',
-            50,
-            715,
-            { align: 'center', width: 500 },
-          );
+          .text('Thank you for your business!', 50, 700, {
+            align: 'center',
+            width: 500,
+          })
+          .text('For support, contact us at support@ecommerce.com', 50, 715, {
+            align: 'center',
+            width: 500,
+          });
 
         // Finalize PDF
         doc.end();

@@ -1,0 +1,68 @@
+name: ecommerce-backend-prod
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ecommerce-db-prod
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_DATABASE}
+    volumes:
+      - pgdata_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Runs DB migrations once, then exits. backend waits for success.
+  migrate:
+    build:
+      context: .
+      target: build
+    container_name: ecommerce-migrate-prod
+    restart: "no"
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_PORT: 5432
+    command: npm run migration:run
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  backend:
+    build:
+      context: .
+      target: production
+    container_name: ecommerce-api-prod
+    restart: always
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_PORT: 5432
+    ports:
+      - "${PORT:-4002}:4002"
+    volumes:
+      - backend_uploads:/app/uploads
+      - backend_images:/app/dist/image
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4002/api-docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  pgdata_prod:
+  backend_uploads:
+  backend_images:

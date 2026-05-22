@@ -12,7 +12,7 @@ import {
   ReportType,
   ReportFormat,
 } from './dto/generate-report.dto';
-import * as PDFDocument from 'pdfkit';
+import PDFDocument from 'pdfkit';
 import * as ExcelJS from 'exceljs';
 
 @Injectable()
