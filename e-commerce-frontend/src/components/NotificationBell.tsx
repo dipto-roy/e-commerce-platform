@@ -21,7 +21,7 @@ function timeAgo(timestamp: Date): string {
 }
 
 const NotificationBell: React.FC<NotificationBellProps> = ({ className = '', showDropdown = true }) => {
-  const { notifications, unreadCount, markAsRead, clearNotification, isConnected } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, clearNotification, isConnected, refresh } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -69,14 +69,30 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ className = '', sho
             <div>
               <h3 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>Notifications</h3>
               {unreadCount > 0 && (
-                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                  {unreadCount} unread
-                </p>
+                <button
+                  onClick={markAllAsRead}
+                  className="text-xs hover:underline"
+                  style={{ color: 'var(--accent-600)' }}
+                >
+                  Mark all as read
+                </button>
               )}
             </div>
-            <button onClick={() => setIsOpen(false)} className="btn btn-icon btn-ghost">
-              <X className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => refresh()}
+                className="btn btn-icon btn-ghost"
+                title="Refresh"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+              <button onClick={() => setIsOpen(false)} className="btn btn-icon btn-ghost">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {/* List */}
@@ -115,7 +131,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ className = '', sho
                         </p>
                         <div className="flex items-center justify-between mt-1.5">
                           <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{timeAgo(n.timestamp)}</span>
-                          {n.data?.urgent && <span className="badge badge-red text-[10px]">Urgent</span>}
+                          {!!n.data?.urgent && <span className="badge badge-red text-[10px]">Urgent</span>}
                         </div>
                       </div>
                     </div>

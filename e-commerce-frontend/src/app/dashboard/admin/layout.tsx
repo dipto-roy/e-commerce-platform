@@ -5,7 +5,6 @@ import Sidebar from '@/components/admin/Sidebar';
 import Header from '@/components/admin/Header';
 import { ToastProvider } from '@/contexts/ToastContext';
 
-// Force dynamic rendering for all admin pages
 export const dynamic = 'force-dynamic';
 
 interface AdminLayoutProps {
@@ -16,22 +15,26 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { loading, isAdmin } = useAdminAuth();
 
-  // Show loading spinner while checking auth
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen flex items-center justify-center"
+        style={{ background: 'var(--bg-secondary)' }}>
+        <span className="spinner" style={{ width: '3rem', height: '3rem', borderWidth: '3px' }} />
       </div>
     );
   }
 
-  // This will redirect if not admin, so we only render if admin
   if (!isAdmin) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900">Access Denied</h2>
-          <p className="text-gray-600">You don't have permission to access this area.</p>
+      <div className="min-h-screen flex items-center justify-center"
+        style={{ background: 'var(--bg-secondary)' }}>
+        <div className="card p-8 max-w-sm text-center">
+          <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+            Access Denied
+          </h2>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+            You don&apos;t have permission to access this area.
+          </p>
         </div>
       </div>
     );
@@ -39,20 +42,20 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
   return (
     <ToastProvider>
-      <div className="flex h-screen bg-gray-100">
+      <div className="flex h-screen overflow-hidden" style={{ background: 'var(--bg-secondary)' }}>
         {/* Sidebar */}
-        <Sidebar 
-          isOpen={sidebarOpen} 
-          onToggle={() => setSidebarOpen(!sidebarOpen)} 
+        <Sidebar
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen(!sidebarOpen)}
         />
 
-        {/* Main content area */}
-        <div className="flex-1 flex flex-col overflow-hidden lg:ml-64">
-          {/* Header */}
+        {/* Main content */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          {/* Admin header (contains sidebar hamburger on mobile) */}
           <Header onSidebarToggle={() => setSidebarOpen(!sidebarOpen)} />
 
           {/* Page content */}
-          <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
+          <main className="flex-1 overflow-y-auto p-6">
             {children}
           </main>
         </div>
