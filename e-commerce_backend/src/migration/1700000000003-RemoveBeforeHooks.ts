@@ -9,12 +9,15 @@ export class RemoveBeforeHooks1700000000003 implements MigrationInterface {
     // However, we need to ensure that any existing data that was processed by these hooks
     // remains consistent
 
-    // Check if there are any products with incomplete imageUrl or slug data
-    const productsWithIncompleteData = await queryRunner.query(`
-            SELECT id, name, "imageUrl", slug 
-            FROM products 
-            WHERE ("imageUrl" IS NULL OR slug IS NULL)
-        `);
+    // Check if there are any products with incomplete imageUrl or slug data.
+    // `slug` is added by a later migration, so guard against its absence.
+    const hasSlug = await queryRunner.hasColumn('products', 'slug');
+    const condition = hasSlug
+      ? '("imageUrl" IS NULL OR slug IS NULL)'
+      : '"imageUrl" IS NULL';
+    const productsWithIncompleteData = await queryRunner.query(
+      `SELECT id, name, "imageUrl" FROM products WHERE ${condition}`,
+    );
 
     if (productsWithIncompleteData.length > 0) {
       console.log(
