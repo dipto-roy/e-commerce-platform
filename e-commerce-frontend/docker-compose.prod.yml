@@ -1,0 +1,39 @@
+# ─────────────────────────────────────────────────────────────────
+# Production compose
+#   • Builds standalone Next.js image (no dev deps, ~200 MB)
+#   • Runs as non-root user (nextjs:nodejs)
+#   • Env injected via .env.production (never baked into image)
+#   • Restart always — survives host reboots
+# ─────────────────────────────────────────────────────────────────
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production           # uses the "production" stage
+    container_name: ecommerce-frontend-prod
+    ports:
+      - "3000:3000"
+    env_file:
+      - path: .env.production
+        required: false
+      - path: .env
+        required: false
+    environment:
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+    restart: always
+    # Read-only filesystem hardening (no writes except /tmp)
+    read_only: true
+    tmpfs:
+      - /tmp
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 256M
