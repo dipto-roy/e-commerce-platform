@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import CursorTrail from "@/components/CursorTrail/CursorTrail";
-import ProductCard from "@/components/ProductCard/ProductCard";
+import Link from 'next/link';
+import { ShoppingCart, ArrowRight, RefreshCw, Package, Leaf, Star } from 'lucide-react';
 import { generalAPI, cartAPI } from "@/utils/api";
 import { useAuth } from '@/contexts/AuthContextNew';
 
@@ -38,6 +38,20 @@ interface PaginationData {
   hasPrevPage: boolean;
 }
 
+function SkeletonCard() {
+  return (
+    <div className="card overflow-hidden">
+      <div className="skeleton w-full h-48" />
+      <div className="p-4 space-y-3">
+        <div className="skeleton h-4 w-3/4" />
+        <div className="skeleton h-3 w-full" />
+        <div className="skeleton h-3 w-1/2" />
+        <div className="skeleton h-9 w-full mt-2" />
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [pagination, setPagination] = useState<PaginationData | null>(null);
@@ -48,260 +62,253 @@ export default function Home() {
   const { user, isAuthenticated } = useAuth();
   const router = useRouter();
 
-  // Function to get image URL
   const getImageUrl = (product: Product): string => {
     if (product.images && product.images.length > 0) {
       const activeImage = product.images.find(img => img.isActive) || product.images[0];
-      // Backend already returns complete URLs, use them directly
       return activeImage.imageUrl;
     }
-    return '/images/placeholder.jpg'; // Fallback image
+    return '/images/placeholder.jpg';
   };
 
-  // Fetch products with pagination
   const fetchProducts = async (page: number = 1) => {
     try {
       setLoading(true);
       setError(null);
       const response = await generalAPI.getPaginatedProducts(page, 12);
       const data = response.data as PaginationData;
-      
-      console.log(`📊 Products fetched: ${data.products.length}, page: ${page}`);
-      
-      // Don't filter here - backend should return only valid products
-      // If a product has no images, it's a data issue that should be fixed in backend
       setProducts(data.products);
       setPagination(data);
       setCurrentPage(page);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch products');
-      console.error('Error fetching products:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle add to cart
   const handleAddToCart = async (productId: number) => {
-    console.log('🛒 Add to cart clicked:', { productId, isAuthenticated, user: user?.username });
-    
     if (!isAuthenticated) {
-      console.log('❌ User not authenticated, redirecting to login');
-      alert('Please login to add items to cart');
       router.push('/login');
       return;
     }
-
     try {
       setAddingToCart(productId);
-      console.log('🚀 Making cart API call...');
-      const response = await cartAPI.addToCart(productId, 1);
-      console.log('✅ Cart API response:', response);
-      alert('Product added to cart successfully!');
+      await cartAPI.addToCart(productId, 1);
+      if (typeof window !== 'undefined' && (window as any).refreshCartCount) {
+        (window as any).refreshCartCount();
+      }
     } catch (err: any) {
-      console.error('❌ Error adding to cart:', err);
-      console.error('Error details:', {
-        status: err.response?.status,
-        message: err.response?.data?.message,
-        data: err.response?.data
-      });
-      
       if (err.response?.status === 401) {
-        alert('Authentication failed. Please login again.');
         router.push('/login');
-      } else {
-        alert(err.response?.data?.message || 'Failed to add product to cart. Please try again.');
       }
     } finally {
       setAddingToCart(null);
     }
   };
 
-  // Load products on component mount and set up auto-refresh
   useEffect(() => {
     fetchProducts(1);
-    
-    // Auto-refresh every 30 seconds to catch product deletions/updates
-    const refreshInterval = setInterval(() => {
-      console.log('🔄 Auto-refreshing product list...');
-      fetchProducts(currentPage);
-    }, 30000); // 30 seconds
-    
+    const refreshInterval = setInterval(() => fetchProducts(currentPage), 30000);
     return () => clearInterval(refreshInterval);
   }, [currentPage]);
 
-  // Pagination handlers
-  const handlePrevPage = () => {
-    if (pagination?.hasPrevPage) {
-      fetchProducts(currentPage - 1);
-    }
-  };
-
-  const handleNextPage = () => {
-    if (pagination?.hasNextPage) {
-      fetchProducts(currentPage + 1);
-    }
-  };
-
-  const handlePageClick = (page: number) => {
-    fetchProducts(page);
-  };
-
-  // Generate page numbers for pagination
   const renderPageNumbers = () => {
     if (!pagination) return null;
-    
     const pages = [];
     const maxVisible = 5;
     let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
     let endPage = Math.min(pagination.totalPages, startPage + maxVisible - 1);
-    
     if (endPage - startPage + 1 < maxVisible) {
       startPage = Math.max(1, endPage - maxVisible + 1);
     }
-
     for (let i = startPage; i <= endPage; i++) {
       pages.push(
         <button
           key={i}
-          onClick={() => handlePageClick(i)}
-          className={`px-3 py-1 mx-1 rounded ${
+          onClick={() => fetchProducts(i)}
+          className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
             i === currentPage
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              ? 'bg-[var(--accent-500)] text-white'
+              : 'bg-white border border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--accent-300)] hover:text-[var(--accent-600)]'
           }`}
         >
           {i}
         </button>
       );
     }
-    
     return pages;
   };
 
-  if (loading) {
-    return (
-      <>
-        <CursorTrail />
-        <div className="flex justify-center items-center min-h-screen">
-          <div className="text-white text-xl">Loading products...</div>
-        </div>
-      </>
-    );
-  }
-
-  if (error) {
-    return (
-      <>
-        <CursorTrail />
-        <div className="flex justify-center items-center min-h-screen">
-          <div className="text-red-500 text-xl">Error: {error}</div>
-        </div>
-      </>
-    );
-  }
-
   return (
-    <>
-      <CursorTrail />
-      <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-10 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-        <h1 className="text-6xl font-semibold animate-pulse">Welcome to Our E-Commerce Store</h1>
-        <p>Discover a wide range of products at unbeatable prices.</p>
+    <div className="page-wrapper">
+      {/* Hero */}
+      <section
+        style={{ background: 'linear-gradient(135deg, var(--accent-50) 0%, #ffffff 60%)' }}
+        className="border-b border-[var(--border)]"
+      >
+        <div className="container-app py-16 md:py-24">
+          <div className="max-w-2xl mx-auto text-center">
+            <div className="chip mb-6 mx-auto w-fit">
+              <Leaf className="w-3.5 h-3.5" />
+              Free shipping on orders over $50
+            </div>
+            <h1 className="section-title mb-4">
+              Discover Amazing<br />
+              <span style={{ color: 'var(--accent-600)' }}>Products</span>
+            </h1>
+            <p className="section-subtitle mb-8 max-w-md mx-auto">
+              Shop thousands of curated items from verified sellers at unbeatable prices.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link href="/products" className="btn btn-primary btn-lg">
+                Shop Now
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <Link href="/Singup" className="btn btn-outline btn-lg">
+                Become a Seller
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Stats strip */}
+      <div className="bg-white border-b border-[var(--border)]">
+        <div className="container-app">
+          <div className="grid grid-cols-3 divide-x divide-[var(--border)] py-4 text-center">
+            {[
+              { label: 'Products', value: pagination ? `${pagination.totalCount}+` : '…' },
+              { label: 'Verified Sellers', value: '200+' },
+              { label: 'Happy Customers', value: '10k+' },
+            ].map(stat => (
+              <div key={stat.label} className="px-4 py-2">
+                <p className="text-xl font-bold" style={{ color: 'var(--accent-600)' }}>{stat.value}</p>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
-      
-      <div className="text-center mb-12">
-        <div className="flex items-center justify-center gap-4 mb-4">
-          <h2 className="text-4xl font-bold text-white">Featured Products</h2>
+
+      {/* Products section */}
+      <div className="container-app py-10">
+        {/* Section header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+          <div>
+            <h2 className="section-title">Featured Products</h2>
+            {pagination && (
+              <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                {products.length} of {pagination.totalCount} products · Page {currentPage}/{pagination.totalPages}
+              </p>
+            )}
+          </div>
           <button
             onClick={() => fetchProducts(currentPage)}
             disabled={loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-            title="Refresh product list"
+            className="btn btn-outline btn-sm self-start sm:self-auto"
           >
-            {loading ? '🔄 Refreshing...' : '🔄 Refresh'}
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? 'Refreshing…' : 'Refresh'}
           </button>
         </div>
-        <p className="text-gray-400">Explore our top picks just for you</p>
-        {pagination && (
-          <p className="text-gray-500 mt-2">
-            Showing {products.length} of {pagination.totalCount} products (Page {currentPage} of {pagination.totalPages})
-          </p>
+
+        {/* Error */}
+        {error && !loading && (
+          <div className="alert alert-error mb-6">
+            <Package className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {/* Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+          {loading
+            ? Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)
+            : products.map((product) => (
+                <div key={product.id} className="card card-interactive overflow-hidden flex flex-col">
+                  <Link href={`/products/${product.id}`} className="block overflow-hidden bg-[var(--bg-tertiary)]">
+                    <img
+                      src={getImageUrl(product)}
+                      alt={product.name}
+                      className="w-full h-44 object-cover hover:scale-105 transition-transform duration-300"
+                      onError={(e) => { (e.target as HTMLImageElement).src = '/images/placeholder.jpg'; }}
+                    />
+                  </Link>
+                  <div className="p-4 flex flex-col flex-1 gap-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <Link href={`/products/${product.id}`}>
+                        <h3 className="text-sm font-semibold line-clamp-2 leading-snug hover:text-[var(--accent-600)] transition-colors"
+                          style={{ color: 'var(--text-primary)' }}>
+                          {product.name}
+                        </h3>
+                      </Link>
+                      {!product.isActive && (
+                        <span className="badge badge-red shrink-0 text-[10px]">OOS</span>
+                      )}
+                    </div>
+
+                    <span className="badge badge-gray w-fit text-xs">{product.category}</span>
+
+                    <div className="flex items-center justify-between mt-auto pt-1">
+                      <span className="text-lg font-bold" style={{ color: 'var(--accent-600)' }}>
+                        ${Number(product.price).toFixed(2)}
+                      </span>
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                        by {product.seller?.username}
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={() => handleAddToCart(product.id)}
+                      disabled={addingToCart === product.id || !product.isActive}
+                      className="btn btn-primary btn-full btn-sm mt-1"
+                    >
+                      {addingToCart === product.id ? (
+                        <><span className="spinner" style={{ width: '0.9rem', height: '0.9rem' }} /> Adding…</>
+                      ) : !product.isActive ? (
+                        'Out of Stock'
+                      ) : !isAuthenticated ? (
+                        <><ShoppingCart className="w-3.5 h-3.5" /> Login to Order</>
+                      ) : (
+                        <><ShoppingCart className="w-3.5 h-3.5" /> Add to Cart</>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ))
+          }
+        </div>
+
+        {/* Empty state */}
+        {!loading && products.length === 0 && !error && (
+          <div className="text-center py-20">
+            <Package className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--text-muted)' }} />
+            <h3 className="font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>No products yet</h3>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Check back soon for new arrivals.</p>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {pagination && pagination.totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-10 flex-wrap">
+            <button
+              onClick={() => fetchProducts(currentPage - 1)}
+              disabled={!pagination.hasPrevPage}
+              className="btn btn-outline btn-sm"
+            >
+              ← Previous
+            </button>
+            {renderPageNumbers()}
+            <button
+              onClick={() => fetchProducts(currentPage + 1)}
+              disabled={!pagination.hasNextPage}
+              className="btn btn-outline btn-sm"
+            >
+              Next →
+            </button>
+          </div>
         )}
       </div>
-
-      <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8 mb-8">
-        {products.map((product) => (
-          <div key={product.id} className="bg-white rounded-lg shadow-lg overflow-hidden">
-            <div className="aspect-w-1 aspect-h-1 w-full">
-              <img
-                src={getImageUrl(product)}
-                alt={product.name}
-                className="w-full h-48 object-cover"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = '/images/placeholder.jpg';
-                }}
-              />
-            </div>
-            <div className="p-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">{product.name}</h3>
-              <p className="text-gray-600 text-sm mb-2 line-clamp-2">{product.description}</p>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-xl font-bold text-blue-600">${product.price}</span>
-                <span className="text-sm text-gray-500">{product.category}</span>
-              </div>
-              <div className="text-xs text-gray-500 mb-3">
-                Sold by: {product.seller.username}
-              </div>
-              <button
-                onClick={() => handleAddToCart(product.id)}
-                disabled={addingToCart === product.id || !product.isActive}
-                className={`w-full py-2 px-4 rounded font-semibold ${
-                  product.isActive
-                    ? addingToCart === product.id
-                      ? 'bg-gray-400 text-white cursor-not-allowed'
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                {addingToCart === product.id ? 'Adding...' : 
-                 !product.isActive ? 'Out of Stock' : 
-                 !isAuthenticated ? 'Login to Order' : 'Add to Cart'}
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Pagination Controls */}
-      {pagination && pagination.totalPages > 1 && (
-        <div className="flex justify-center items-center mb-16 space-x-2">
-          <button
-            onClick={handlePrevPage}
-            disabled={!pagination.hasPrevPage}
-            className={`px-4 py-2 rounded ${
-              pagination.hasPrevPage
-                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
-          >
-            Previous
-          </button>
-          
-          {renderPageNumbers()}
-          
-          <button
-            onClick={handleNextPage}
-            disabled={!pagination.hasNextPage}
-            className={`px-4 py-2 rounded ${
-              pagination.hasNextPage
-                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
-          >
-            Next
-          </button>
-        </div>
-      )}
-    </>
+    </div>
   );
 }

@@ -17,22 +17,13 @@ export default function DashboardRedirectPage() {
     }
   }, [user, loading, router, redirectToDashboard]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="flex flex-col items-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <p className="mt-4 text-gray-600">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="flex flex-col items-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        <p className="mt-4 text-gray-600">Redirecting to dashboard...</p>
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-tertiary)' }}>
+      <div className="flex flex-col items-center gap-4">
+        <span className="spinner" style={{ width: '3rem', height: '3rem', borderWidth: '3px' }} />
+        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+          {loading ? 'Loading dashboard…' : 'Redirecting…'}
+        </p>
       </div>
     </div>
   );

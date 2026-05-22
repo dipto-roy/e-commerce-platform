@@ -44,9 +44,10 @@ interface ProductsResponse {
 
 // Server-side data fetching with enhanced PostgreSQL integration
 async function getProducts(): Promise<Product[]> {
+  // INTERNAL_API_URL for SSR/container environments (e.g. http://backend:4002/api/v1)
+  // NEXT_PUBLIC_API_URL used as fallback
+  const apiUrl = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002/api/v1';
   try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002/api/v1';
-    
     console.log(`📦 SSR: Fetching products from ${apiUrl}/products/paginated`);
     
     // Use paginated endpoint to get products with images from PostgreSQL
@@ -83,7 +84,6 @@ async function getProducts(): Promise<Product[]> {
     
     // Fallback: try the with-images endpoint
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002/api/v1';
       const fallbackResponse = await axios.get<Product[]>(`${apiUrl}/products/with-images`, {
         timeout: 10000,
         headers: {
@@ -110,7 +110,6 @@ async function getProducts(): Promise<Product[]> {
       
       // Last resort: basic products endpoint
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002/api/v1';
         const basicResponse = await axios.get<Product[]>(`${apiUrl}/products`, {
           timeout: 5000,
           headers: {

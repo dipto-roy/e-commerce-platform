@@ -215,7 +215,7 @@ export default function ProductForm({ product, onSubmit, onCancel, loading = fal
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
                   errors.title 
                     ? 'border-red-300 focus:ring-red-500' 
-                    : 'border-gray-300 focus:ring-blue-500'
+                    : 'border-[var(--border)] focus:ring-[var(--accent-500)]'
                 }`}
                 placeholder="Enter product title"
                 disabled={loading}
@@ -237,7 +237,7 @@ export default function ProductForm({ product, onSubmit, onCancel, loading = fal
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
                   errors.category 
                     ? 'border-red-300 focus:ring-red-500' 
-                    : 'border-gray-300 focus:ring-blue-500'
+                    : 'border-[var(--border)] focus:ring-[var(--accent-500)]'
                 }`}
                 disabled={loading}
               >
@@ -266,7 +266,7 @@ export default function ProductForm({ product, onSubmit, onCancel, loading = fal
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
                   errors.price 
                     ? 'border-red-300 focus:ring-red-500' 
-                    : 'border-gray-300 focus:ring-blue-500'
+                    : 'border-[var(--border)] focus:ring-[var(--accent-500)]'
                 }`}
                 placeholder="0.00"
                 disabled={loading}
@@ -290,7 +290,7 @@ export default function ProductForm({ product, onSubmit, onCancel, loading = fal
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
                   errors.stock 
                     ? 'border-red-300 focus:ring-red-500' 
-                    : 'border-gray-300 focus:ring-blue-500'
+                    : 'border-[var(--border)] focus:ring-[var(--accent-500)]'
                 }`}
                 placeholder="0"
                 disabled={loading}
@@ -314,7 +314,7 @@ export default function ProductForm({ product, onSubmit, onCancel, loading = fal
               className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
                 errors.description 
                   ? 'border-red-300 focus:ring-red-500' 
-                  : 'border-gray-300 focus:ring-blue-500'
+                  : 'border-[var(--border)] focus:ring-[var(--accent-500)]'
               }`}
               placeholder="Enter product description"
               disabled={loading}
@@ -334,7 +334,7 @@ export default function ProductForm({ product, onSubmit, onCancel, loading = fal
               multiple
               accept="image/*"
               onChange={handleFileChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-[var(--border)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--accent-500)]"
               disabled={loading}
             />
             
@@ -370,7 +370,7 @@ export default function ProductForm({ product, onSubmit, onCancel, loading = fal
               id="isActive"
               checked={formData.isActive}
               onChange={(e) => handleInputChange('isActive', e.target.checked)}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="h-4 w-4 text-[var(--accent-600)] border-[var(--border)] rounded"
               disabled={loading}
             />
             <label htmlFor="isActive" className="ml-2 block text-sm text-gray-700">
@@ -383,14 +383,14 @@ export default function ProductForm({ product, onSubmit, onCancel, loading = fal
             <button
               type="button"
               onClick={onCancel}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="btn btn-outline"
               disabled={loading}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 text-sm font-medium text-white btn btn-primary"
               disabled={loading}
             >
               {loading ? (

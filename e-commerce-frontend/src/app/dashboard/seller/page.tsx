@@ -2,8 +2,8 @@
 import React from 'react';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import LogoutButton from '@/components/LogoutButton';
+import { Package, ShoppingCart, DollarSign, Clock, Plus, AlertTriangle } from 'lucide-react';
 
-// Force dynamic rendering
 export const dynamic = 'force-dynamic';
 
 export default function SellerDashboardPage() {
@@ -11,172 +11,102 @@ export default function SellerDashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-tertiary)' }}>
+        <span className="spinner" style={{ width: '3rem', height: '3rem', borderWidth: '3px' }} />
       </div>
     );
   }
 
+  const STATS = [
+    { label: 'Total Products', value: '0', icon: Package,      color: '#10b981' },
+    { label: 'Total Orders',   value: '—', icon: ShoppingCart, color: '#3b82f6' },
+    { label: 'Total Revenue',  value: '$0.00', icon: DollarSign, color: '#8b5cf6' },
+    { label: 'Pending Orders', value: '0', icon: Clock,        color: '#f59e0b' },
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        <div className="mb-8 flex justify-between items-start">
+    <div className="page-wrapper">
+      <div className="page-header">
+        <div className="container-app">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h1 className="section-title">Seller Dashboard</h1>
+              <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+                Welcome back, {user?.username}!
+              </p>
+            </div>
+            <LogoutButton variant="header" size="md" />
+          </div>
+        </div>
+      </div>
+
+      <div className="container-app py-8">
+        {/* Pending review banner */}
+        <div className="alert mb-6" style={{
+          background: 'rgba(245,158,11,0.08)',
+          border: '1px solid rgba(245,158,11,0.25)',
+          borderRadius: '0.75rem',
+          padding: '1rem',
+        }}>
+          <AlertTriangle className="w-4 h-4 shrink-0" style={{ color: '#f59e0b' }} />
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Seller Dashboard</h1>
-            <p className="mt-2 text-gray-600">Welcome back, {user?.username}!</p>
-          </div>
-          <LogoutButton variant="header" size="md" />
-        </div>
-
-        {/* Status Banner */}
-        <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-6">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-yellow-800">Account Under Review</h3>
-              <div className="mt-2 text-sm text-yellow-700">
-                <p>Your seller account is currently being reviewed by our admin team. You'll be notified once approved.</p>
-              </div>
-            </div>
+            <p className="font-medium text-sm" style={{ color: '#92400e' }}>Account Under Review</p>
+            <p className="text-sm mt-0.5" style={{ color: '#b45309' }}>
+              Your seller account is being reviewed by admin. You'll be notified once approved.
+            </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {/* Stats Cards */}
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                    </svg>
-                  </div>
+        {/* Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          {STATS.map(({ label, value, icon: Icon, color }) => (
+            <div key={label} className="card p-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ background: `${color}18` }}>
+                  <Icon className="w-5 h-5" style={{ color }} />
                 </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Total Products</dt>
-                    <dd className="text-lg font-medium text-gray-900">0</dd>
-                  </dl>
+                <div>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{label}</p>
+                  <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
                 </div>
               </div>
             </div>
-          </div>
-
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Total Orders</dt>
-                    <dd className="text-lg font-medium text-gray-900"></dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Total Revenue</dt>
-                    <dd className="text-lg font-medium text-gray-900">$0.00</dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Pending Orders</dt>
-                    <dd className="text-lg font-medium text-gray-900">0</dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
 
-        {/* Quick Actions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white shadow rounded-lg">
-            <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Quick Actions</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <button className="flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  Add Product
-                </button>
-                <button className="flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                  </svg>
-                  Manage Products
-                </button>
-                <button className="flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700">
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
-                  View Orders
-                </button>
-                <button className="flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gray-600 hover:bg-gray-700">
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                  Profile Settings
-                </button>
-              </div>
+          {/* Quick Actions */}
+          <div className="card p-6">
+            <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Quick Actions</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: 'Add Product',      href: '/seller/products/new', primary: true },
+                { label: 'Manage Products',  href: '/seller/products',    primary: false },
+                { label: 'View Orders',      href: '/seller/orders',      primary: false },
+                { label: 'Profile Settings', href: '/user/profile',       primary: false },
+              ].map(({ label, href, primary }) => (
+                <a key={label} href={href}
+                  className={`btn btn-sm ${primary ? 'btn-primary' : 'btn-outline'} justify-center`}>
+                  {primary && <Plus className="w-3.5 h-3.5" />}
+                  {label}
+                </a>
+              ))}
             </div>
           </div>
 
-          <div className="bg-white shadow rounded-lg">
-            <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Recent Activity</h3>
-              <div className="text-center py-6">
-                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No activity yet</h3>
-                <p className="mt-1 text-sm text-gray-500">Start by adding your first product to begin selling.</p>
-                <div className="mt-6">
-                  <button className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
-                    Add Product
-                  </button>
-                </div>
-              </div>
+          {/* Recent Activity */}
+          <div className="card p-6">
+            <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Recent Activity</h3>
+            <div className="text-center py-8">
+              <ShoppingCart className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--text-muted)' }} />
+              <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>No activity yet</p>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+                Start by adding your first product.
+              </p>
+              <a href="/seller/products/new" className="btn btn-primary btn-sm mt-4 inline-flex">
+                <Plus className="w-3.5 h-3.5" /> Add Product
+              </a>
             </div>
           </div>
         </div>

@@ -4,17 +4,14 @@ import { useRouter } from 'next/navigation';
 
 export default function AdminDashboardRedirect() {
   const router = useRouter();
-
-  useEffect(() => {
-    // Redirect to the new enhanced admin dashboard
-    router.replace('/dashboard/admin');
-  }, [router]);
-
+  useEffect(() => { router.replace('/dashboard/admin'); }, [router]);
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+    <div className="page-wrapper flex items-center justify-center">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-        <p className="mt-4 text-gray-600">Redirecting to enhanced admin dashboard...</p>
+        <span className="spinner" style={{ width: '3rem', height: '3rem', borderWidth: '3px', margin: '0 auto' }} />
+        <p className="mt-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
+          Redirecting to admin dashboard…
+        </p>
       </div>
     </div>
   );

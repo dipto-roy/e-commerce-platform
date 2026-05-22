@@ -1,7 +1,10 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Menu, X, ShoppingCart, Heart, User, Package, Home, LogOut, ChevronDown, Search } from 'lucide-react';
+import {
+  Menu, X, ShoppingCart, Heart, User, Package,
+  Home, LogOut, ChevronDown, Search, ShoppingBag,
+} from 'lucide-react';
 import { cartAPI } from '@/config/api';
 import { useAuth } from '@/contexts/AuthContextNew';
 import NotificationBell from './NotificationBell';
@@ -14,10 +17,16 @@ interface User {
   isActive: boolean;
 }
 
+function roleBadgeClass(role: User['role']): string {
+  if (role === 'ADMIN') return 'badge badge-green';
+  if (role === 'SELLER') return 'badge badge-blue';
+  return 'badge badge-gray';
+}
+
 export default function Navigation() {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, loading, logout } = useAuth(); // Use centralized auth state
+  const { user, loading, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -46,7 +55,6 @@ export default function Navigation() {
     }
   };
 
-  // Expose refreshCartCount function globally for other components
   useEffect(() => {
     if (typeof window !== 'undefined') {
       (window as any).refreshCartCount = fetchCartCount;
@@ -55,7 +63,7 @@ export default function Navigation() {
 
   const handleLogout = async () => {
     try {
-      await logout(); // Use the centralized logout from AuthContext
+      await logout();
     } catch (error) {
       console.error('Logout failed:', error);
     }
@@ -68,13 +76,24 @@ export default function Navigation() {
     }
   };
 
+  const navLinkClass = (active: boolean) =>
+    `flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+      active
+        ? 'text-[var(--accent-600)] bg-[var(--accent-50)]'
+        : 'text-[var(--text-secondary)] hover:text-[var(--accent-600)] hover:bg-[var(--accent-50)]'
+    }`;
+
   if (loading) {
     return (
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <div className="text-xl font-bold text-blue-600">E-Commerce</div>
+      <nav
+        className="bg-[var(--bg-primary)] border-b border-[var(--border)] sticky top-0 z-50"
+        style={{ boxShadow: 'var(--shadow-sm)' }}
+      >
+        <div className="container-app">
+          <div className="flex items-center h-16">
+            <div className="flex items-center gap-2 text-xl font-bold text-[var(--accent-600)]">
+              <ShoppingBag className="h-5 w-5" />
+              ShopNest
             </div>
           </div>
         </div>
@@ -83,250 +102,234 @@ export default function Navigation() {
   }
 
   return (
-    <nav className="bg-white shadow-sm border-b sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          <div className="flex items-center space-x-8">
-            <div 
-              className="text-xl font-bold text-blue-600 cursor-pointer"
+    <nav
+      className="bg-[var(--bg-primary)]/95 backdrop-blur-md border-b border-[var(--border)] sticky top-0 z-50"
+      style={{ boxShadow: 'var(--shadow-sm)' }}
+    >
+      <div className="container-app">
+        <div className="flex items-center justify-between h-16 gap-4">
+
+          {/* Brand + Desktop nav */}
+          <div className="flex items-center gap-8 shrink-0">
+            <button
               onClick={() => router.push('/')}
+              className="flex items-center gap-2 text-xl font-bold text-[var(--accent-600)] hover:text-[var(--accent-700)] transition-colors"
             >
-              E-Commerce
-            </div>
+              <ShoppingBag className="h-5 w-5" />
+              ShopNest
+            </button>
 
-            <div className="hidden md:flex items-center space-x-6">
-              <button
-                onClick={() => router.push('/')}
-                className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  pathname === '/'
-                    ? 'text-blue-600 bg-blue-50'
-                    : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
-                }`}
-              >
+            <div className="hidden md:flex items-center gap-1">
+              <button onClick={() => router.push('/')} className={navLinkClass(pathname === '/')}>
                 <Home className="h-4 w-4" />
-                <span>Home</span>
+                Home
               </button>
-              
-              <button
-                onClick={() => router.push('/products')}
-                className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  pathname === '/products'
-                    ? 'text-blue-600 bg-blue-50'
-                    : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
-                }`}
-              >
+              <button onClick={() => router.push('/products')} className={navLinkClass(pathname === '/products' || pathname.startsWith('/products'))}>
                 <Package className="h-4 w-4" />
-                <span>Products</span>
+                Products
               </button>
             </div>
           </div>
 
-          <div className="hidden md:flex items-center flex-1 max-w-md mx-8">
-            <form onSubmit={handleSearch} className="w-full">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search products..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </form>
-          </div>
+          {/* Desktop search */}
+          <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-sm">
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-muted)]" />
+              <input
+                type="text"
+                placeholder="Search products..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="input pl-9 rounded-full"
+              />
+            </div>
+          </form>
 
-          <div className="flex items-center space-x-4">
+          {/* Right actions */}
+          <div className="flex items-center gap-1">
+            {/* Cart */}
             <button
               onClick={() => router.push('/cart')}
-              className="relative p-2 text-gray-700 hover:text-blue-600 transition-colors"
+              className="btn btn-ghost btn-icon relative"
+              aria-label="Cart"
             >
-              <ShoppingCart className="h-6 w-6" />
+              <ShoppingCart className="h-5 w-5" />
               {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs font-medium rounded-full h-5 w-5 flex items-center justify-center">
+                <span className="absolute -top-0.5 -right-0.5 badge badge-green text-[10px] min-w-[1.1rem] h-[1.1rem] px-0 flex items-center justify-center">
                   {cartCount > 99 ? '99+' : cartCount}
                 </span>
               )}
             </button>
 
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => router.push('/wishlist')}
-                className="relative p-2 text-gray-700 hover:text-blue-600 transition-colors"
-              >
-                <Heart className="h-6 w-6" />
-              </button>
+            {/* Wishlist */}
+            <button
+              onClick={() => router.push('/wishlist')}
+              className="btn btn-ghost btn-icon"
+              aria-label="Wishlist"
+            >
+              <Heart className="h-5 w-5" />
+            </button>
 
-            {/* Notifications - Enhanced for different user roles */}
+            {/* Notifications */}
             {user && (
               <div className="relative z-40">
                 <NotificationBell />
               </div>
             )}
-            </div>
 
+            {/* User menu */}
             {user ? (
               <div className="relative">
                 <button
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center space-x-2 text-gray-700 hover:text-blue-600 transition-colors"
+                  className="flex items-center gap-1.5 text-[var(--text-secondary)] hover:text-[var(--accent-600)] transition-colors px-2 py-1 rounded-md hover:bg-[var(--accent-50)]"
                 >
-                  <User className="h-6 w-6" />
+                  <User className="h-5 w-5" />
                   <span className="hidden md:block text-sm font-medium">{user.username}</span>
                   <ChevronDown className="h-4 w-4" />
                 </button>
 
                 {userMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border">
-                    <div className="px-4 py-2 border-b">
-                      <p className="text-sm font-medium text-gray-900">{user.username}</p>
-                      <p className="text-sm text-gray-500">{user.email}</p>
-                      <span className="inline-block px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full mt-1">
-                        {user.role}
-                      </span>
+                  <div
+                    className="absolute right-0 mt-2 w-52 bg-[var(--bg-primary)] rounded-xl border border-[var(--border)] py-1 z-50"
+                    style={{ boxShadow: 'var(--shadow-lg)' }}
+                  >
+                    <div className="px-4 py-3 border-b border-[var(--border)]">
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">{user.username}</p>
+                      <p className="text-xs text-[var(--text-muted)] truncate">{user.email}</p>
+                      <span className={`${roleBadgeClass(user.role)} mt-1.5`}>{user.role}</span>
                     </div>
 
                     <button
-                      onClick={() => {
-                        setUserMenuOpen(false);
-                        router.push('/user/profile');
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      onClick={() => { setUserMenuOpen(false); router.push('/user/profile'); }}
+                      className="w-full text-left px-4 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--accent-600)] transition-colors"
                     >
                       Profile
                     </button>
 
-                    {/* Role-based Dashboard Navigation */}
                     {user.role === 'ADMIN' && (
                       <button
-                        onClick={() => {
-                          setUserMenuOpen(false);
-                          router.push('/dashboard/admin');
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                        onClick={() => { setUserMenuOpen(false); router.push('/dashboard/admin'); }}
+                        className="w-full text-left px-4 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--accent-600)] transition-colors flex items-center gap-2"
                       >
                         <Package className="h-4 w-4" />
-                        <span>Admin Dashboard</span>
+                        Admin Dashboard
                       </button>
                     )}
 
                     {user.role === 'SELLER' && (
                       <button
-                        onClick={() => {
-                          setUserMenuOpen(false);
-                          router.push('/seller/dashboard');
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                        onClick={() => { setUserMenuOpen(false); router.push('/seller/dashboard'); }}
+                        className="w-full text-left px-4 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--accent-600)] transition-colors flex items-center gap-2"
                       >
                         <Package className="h-4 w-4" />
-                        <span>Seller Dashboard</span>
+                        Seller Dashboard
                       </button>
                     )}
 
-                {/* User role dashboard button */}
-                {user.role === 'USER' && (
-                  <button
-                    onClick={() => {
-                      setUserMenuOpen(false);
-                      router.push('/user/dashboard');
-                    }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
-                  >
-                    <User className="h-4 w-4" />
-                    <span>My Dashboard</span>
-                  </button>
-                )}                    <button
-                      onClick={() => {
-                        setUserMenuOpen(false);
-                        router.push('/orders');
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    {user.role === 'USER' && (
+                      <button
+                        onClick={() => { setUserMenuOpen(false); router.push('/user/dashboard'); }}
+                        className="w-full text-left px-4 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--accent-600)] transition-colors flex items-center gap-2"
+                      >
+                        <User className="h-4 w-4" />
+                        My Dashboard
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => { setUserMenuOpen(false); router.push('/orders'); }}
+                      className="w-full text-left px-4 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--accent-600)] transition-colors"
                     >
                       Orders
                     </button>
 
-                    <div className="border-t">
+                    <div className="border-t border-[var(--border)] mt-1">
                       <button
                         onClick={handleLogout}
-                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+                        className="w-full text-left px-4 py-2 text-sm text-[var(--color-error)] hover:bg-red-50 transition-colors flex items-center gap-2"
                       >
                         <LogOut className="h-4 w-4" />
-                        <span>Sign out</span>
+                        Sign out
                       </button>
                     </div>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => router.push('/login')}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors"
+                  className="btn btn-ghost btn-sm hidden sm:inline-flex"
                 >
                   Sign in
                 </button>
                 <button
                   onClick={() => router.push('/Singup')}
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                  className="btn btn-primary btn-sm"
                 >
                   Sign up
                 </button>
               </div>
             )}
 
+            {/* Hamburger */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 text-gray-700 hover:text-blue-600 transition-colors"
+              className="md:hidden btn btn-ghost btn-icon ml-1"
+              aria-label="Toggle menu"
             >
-              {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
         </div>
       </div>
 
+      {/* Mobile slide-down panel */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t bg-white">
-          <div className="px-4 py-4 space-y-3">
-            <form onSubmit={handleSearch} className="mb-4">
+        <div className="md:hidden border-t border-[var(--border)] bg-[var(--bg-primary)]">
+          <div className="container-app py-4 space-y-2">
+            {/* Mobile search */}
+            <form onSubmit={handleSearch} className="mb-3">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-muted)]" />
                 <input
                   type="text"
                   placeholder="Search products..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="input pl-9 rounded-full"
                 />
               </div>
             </form>
 
             <button
               onClick={() => router.push('/')}
-              className="w-full flex items-center space-x-3 px-3 py-2 rounded-md text-left transition-colors text-gray-700 hover:text-blue-600 hover:bg-gray-50"
+              className={`w-full text-left ${navLinkClass(pathname === '/')}`}
             >
               <Home className="h-5 w-5" />
-              <span className="font-medium">Home</span>
+              Home
             </button>
-            
+
             <button
               onClick={() => router.push('/products')}
-              className="w-full flex items-center space-x-3 px-3 py-2 rounded-md text-left transition-colors text-gray-700 hover:text-blue-600 hover:bg-gray-50"
+              className={`w-full text-left ${navLinkClass(pathname.startsWith('/products'))}`}
             >
               <Package className="h-5 w-5" />
-              <span className="font-medium">Products</span>
+              Products
             </button>
 
             {!user && (
-              <div className="pt-4 border-t space-y-2">
+              <div className="pt-3 border-t border-[var(--border)] space-y-2">
                 <button
                   onClick={() => router.push('/login')}
-                  className="w-full px-4 py-2 text-gray-700 hover:text-blue-600 text-left font-medium transition-colors"
+                  className="btn btn-outline btn-full"
                 >
                   Sign in
                 </button>
                 <button
                   onClick={() => router.push('/Singup')}
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  className="btn btn-primary btn-full"
                 >
                   Sign up
                 </button>

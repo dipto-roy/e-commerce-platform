@@ -2,85 +2,72 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import axios from "axios";
+import { ShoppingBag, User, Store, Check, AlertTriangle, Eye, EyeOff } from "lucide-react";
 import { getUsersApiUrl } from "@/config/api";
+import { useRouter } from "next/navigation";
+import { useToast } from "@/contexts/ToastContext";
+
+const ROLES = [
+  { value: "USER", label: "Customer", icon: User, desc: "Browse & buy products" },
+  { value: "SELLER", label: "Seller", icon: Store, desc: "List & sell products" },
+];
 
 export default function SignUpPage() {
-  const [formData, setFormData] = useState({
-    username: "",
-    fullName: "",
-    email: "",
-    password: "",
-    phone: "",
-    role: "USER",
-  });
+  const router = useRouter();
+  const { addToast } = useToast();
 
+  const [formData, setFormData] = useState({
+    username: "", fullName: "", email: "", password: "", phone: "", role: "USER",
+  });
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [validationErrors, setValidationErrors] = useState({
-    username: "",
-    fullName: "",
-    email: "",
-    password: "",
-    phone: "",
+    username: "", fullName: "", email: "", password: "", phone: "",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { id, value } = e.target;
     setFormData({ ...formData, [id]: value });
-    
-    // Clear validation error when user starts typing
     if (validationErrors[id as keyof typeof validationErrors]) {
       setValidationErrors({ ...validationErrors, [id]: "" });
     }
-    
-    // Clear general error
-    if (error) {
-      setError("");
-    }
   };
 
-  // Vanilla JS Validation Functions
-  const validateUsername = (username: string): string => {
-    if (!username.trim()) return "Username is required";
-    if (username.length < 3) return "Username must be at least 3 characters";
-    if (username.length > 20) return "Username must be less than 20 characters";
-    if (!/^[a-zA-Z0-9_]+$/.test(username)) return "Username can only contain letters, numbers, and underscores";
+  const validateUsername = (v: string) => {
+    if (!v.trim()) return "Username is required";
+    if (v.length < 3) return "At least 3 characters";
+    if (v.length > 20) return "Max 20 characters";
+    if (!/^[a-zA-Z0-9_]+$/.test(v)) return "Letters, numbers & underscores only";
+    return "";
+  };
+  const validateFullName = (v: string) => {
+    if (!v.trim()) return "Full name is required";
+    if (v.length < 2) return "At least 2 characters";
+    if (!/^[a-zA-Z\s]+$/.test(v)) return "Letters and spaces only";
+    return "";
+  };
+  const validateEmail = (v: string) => {
+    if (!v.trim()) return "Email is required";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return "Valid email required";
+    return "";
+  };
+  const validatePassword = (v: string) => {
+    if (!v) return "Password is required";
+    if (v.length < 10) return "At least 10 characters";
+    if (!/[a-z]/.test(v)) return "Include a lowercase letter";
+    if (!/[A-Z]/.test(v)) return "Include an uppercase letter";
+    if (!/\d/.test(v)) return "Include a number";
+    return "";
+  };
+  const validatePhone = (v: string) => {
+    if (!v.trim()) return "Phone is required";
+    if (!v.startsWith("01")) return "Must start with 01";
+    if (v.length < 11) return "At least 11 digits";
+    if (!/^\d+$/.test(v)) return "Digits only";
     return "";
   };
 
-  const validateFullName = (fullName: string): string => {
-    if (!fullName.trim()) return "Full name is required";
-    if (fullName.length < 2) return "Full name must be at least 2 characters";
-    if (fullName.length > 50) return "Full name must be less than 50 characters";
-    if (!/^[a-zA-Z\s]+$/.test(fullName)) return "Full name can only contain letters and spaces";
-    return "";
-  };
-
-  const validateEmail = (email: string): string => {
-    if (!email.trim()) return "Email is required";
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) return "Please enter a valid email address";
-    return "";
-  };
-
-  const validatePassword = (password: string): string => {
-    if (!password) return "Password is required";
-    if (password.length < 10) return "Password must be at least 10 characters";
-    if (!/[a-z]/.test(password)) return "Password must contain at least one lowercase letter";
-    if (!/[A-Z]/.test(password)) return "Password must contain at least one uppercase letter";
-    if (!/\d/.test(password)) return "Password must contain at least one number";
-    return "";
-  };
-
-  const validatePhone = (phone: string): string => {
-    if (!phone.trim()) return "Phone number is required";
-    if (!phone.startsWith("01")) return "Phone number must start with 01";
-    if (phone.length < 11) return "Phone number must be at least 11 digits";
-    if (!/^\d+$/.test(phone.substring(2))) return "Phone number can only contain digits";
-    return "";
-  };
-
-  const validateForm = (): boolean => {
+  const validateForm = () => {
     const errors = {
       username: validateUsername(formData.username),
       fullName: validateFullName(formData.fullName),
@@ -88,84 +75,40 @@ export default function SignUpPage() {
       password: validatePassword(formData.password),
       phone: validatePhone(formData.phone),
     };
-
     setValidationErrors(errors);
-
-    // Return true if no errors
-    return !Object.values(errors).some(error => error !== "");
+    return !Object.values(errors).some(e => e !== "");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate form before submission
-    if (!validateForm()) {
-      return;
-    }
-    
+    if (!validateForm()) return;
     setLoading(true);
-    setError("");
-
     try {
-      // Send role values as uppercase since database enum expects uppercase
-      const backendFormData = {
-        ...formData,
-        role: formData.role // Keep original uppercase values (USER, SELLER, ADMIN)
-      };
-
-      console.log("Sending data to backend:", backendFormData);
-
-      const res = await axios.post(`${getUsersApiUrl()}/create`, backendFormData, {
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        }
+      const res = await axios.post(`${getUsersApiUrl()}/create`, formData, {
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
       });
-
       const result = res.data as { username: string };
-      
-      // Show different messages based on role
-      if (formData.role === "SELLER") {
-        alert("Seller account created successfully! ✅\n\n" +
-              "⚠️ IMPORTANT NOTICE: Your account requires admin approval before you can login.\n\n" +
-              "📝 What happens next:\n" +
-              "1. Admin will review your seller application\n" +
-              "2. You'll be notified once approved\n" +
-              "3. After approval, you can login to access your seller dashboard\n\n" +
-              "💡 If you try to login before approval, you'll see an admin verification message.\n\n" +
-              "Thank you for joining us, " + result.username + "!");
-      } else {
-        alert("Account created successfully! Welcome " + result.username);
-      }
 
-      // Reset form
-      setFormData({
-        username: "",
-        fullName: "",
-        email: "",
-        password: "",
-        phone: "",
-        role: "USER",
-      });
-    } catch (err: any) {
-      console.error("Signup error:", err);
-      
-      if (err.response) {
-        // Backend responded with error status
-        const errorData = err.response.data;
-        console.log("Backend error response:", errorData);
-        
-        if (errorData.message && Array.isArray(errorData.message)) {
-          setError("Validation errors: " + errorData.message.join(", "));
-        } else {
-          setError(errorData.message || `Error: ${err.response.status}`);
-        }
-      } else if (err.request) {
-        // Network error - no response received
-        setError("Cannot connect to server. Please check if the backend is running");
+      if (formData.role === "SELLER") {
+        addToast(
+          "Seller accounts need admin approval before login. You'll be notified once your application is reviewed.",
+          "warning"
+        );
+        setFormData({ username: "", fullName: "", email: "", password: "", phone: "", role: "USER" });
       } else {
-        // Other error
-        setError(err.message || "An error occurred during signup");
+        // Auto-login after registration — Facebook-style flow
+        addToast(`Welcome, ${result.username}! Your account is ready. You can now sign in.`, "success");
+        router.push("/login");
+      }
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string | string[] } }; request?: unknown; message?: string };
+      if (axiosErr.response?.data?.message) {
+        const msg = axiosErr.response.data.message;
+        addToast(Array.isArray(msg) ? msg.join(", ") : msg, "error");
+      } else if (axiosErr.request) {
+        addToast("Cannot connect to server. Please check your connection.", "error");
+      } else {
+        addToast(axiosErr.message || "An error occurred", "error");
       }
     } finally {
       setLoading(false);
@@ -173,174 +116,143 @@ export default function SignUpPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 px-4">
-      <div className="w-full max-w-md p-8 space-y-6 bg-gray-800 rounded-xl shadow-lg">
-        <div className="text-center">
-          <h2 className="text-3xl font-bold text-white">Create Account</h2>
-          <p className="mt-2 text-gray-400">Sign up to get started with our store</p>
+    <div className="min-h-screen flex">
+      {/* Left brand panel */}
+      <div
+        className="hidden md:flex flex-col justify-between w-5/12 p-12 text-white"
+        style={{ background: 'linear-gradient(160deg, var(--accent-600) 0%, var(--accent-800) 100%)' }}
+      >
+        <div className="flex items-center gap-2 text-xl font-bold">
+          <ShoppingBag className="w-6 h-6" />
+          ShopNest
+        </div>
+        <div>
+          <h2 className="text-3xl font-bold mb-3 leading-tight">
+            Start selling or<br />shopping today
+          </h2>
+          <p className="text-white/70 text-sm mb-8">
+            Create your free account and join thousands of users on ShopNest.
+          </p>
+          <ul className="space-y-3">
+            {["Free to join — no hidden fees", "Seller dashboard with analytics", "Secure payments & buyer protection"].map(f => (
+              <li key={f} className="flex items-center gap-3 text-sm text-white/90">
+                <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                  <Check className="w-3 h-3" />
+                </span>
+                {f}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <p className="text-white/40 text-xs">© {new Date().getFullYear()} ShopNest</p>
+      </div>
+
+      {/* Right form panel */}
+      <div className="flex-1 flex flex-col items-center justify-center p-6 md:p-12 bg-[var(--bg-tertiary)] overflow-y-auto">
+        <div className="flex items-center gap-2 mb-6 md:hidden font-bold text-xl" style={{ color: 'var(--accent-600)' }}>
+          <ShoppingBag className="w-5 h-5" />
+          ShopNest
         </div>
 
-        {error && <p className="text-red-500 text-center">{error}</p>}
-
-        <form className="space-y-5" onSubmit={handleSubmit}>
-          {/* Username */}
-          <div>
-            <label htmlFor="username" className="block text-sm font-medium text-gray-300">
-              Username
-            </label>
-            <input
-              type="text"
-              id="username"
-              value={formData.username}
-              onChange={handleChange}
-              placeholder="Enter your username"
-              className={`mt-2 w-full px-4 py-2 rounded-lg bg-gray-700 text-white border focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                validationErrors.username ? 'border-red-500' : 'border-gray-600'
-              }`}
-            />
-            {validationErrors.username && (
-              <p className="text-red-400 text-xs mt-1">{validationErrors.username}</p>
-            )}
+        <div className="w-full max-w-md">
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-primary)' }}>Create account</h1>
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Fill in the details to get started</p>
           </div>
 
-          <div>
-            <label htmlFor="fullName" className="block text-sm font-medium text-gray-300">
-              Full Name
-            </label>
-            <input
-              type="text"
-              id="fullName"
-              value={formData.fullName}
-              onChange={handleChange}
-              placeholder="Enter your full name"
-              className={`mt-2 w-full px-4 py-2 rounded-lg bg-gray-700 text-white border focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                validationErrors.fullName ? 'border-red-500' : 'border-gray-600'
-              }`}
-            />
-            {validationErrors.fullName && (
-              <p className="text-red-400 text-xs mt-1">{validationErrors.fullName}</p>
-            )}
+          {/* Role selector */}
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            {ROLES.map(({ value, label, icon: Icon, desc }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setFormData({ ...formData, role: value })}
+                className={`p-4 rounded-xl border-2 text-left transition-all ${
+                  formData.role === value
+                    ? 'border-[var(--accent-500)] bg-[var(--accent-50)]'
+                    : 'border-[var(--border)] bg-white hover:border-[var(--accent-200)]'
+                }`}
+              >
+                <Icon className={`w-5 h-5 mb-2 ${formData.role === value ? 'text-[var(--accent-600)]' : 'text-[var(--text-muted)]'}`} />
+                <p className={`font-semibold text-sm ${formData.role === value ? 'text-[var(--accent-700)]' : 'text-[var(--text-primary)]'}`}>{label}</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{desc}</p>
+              </button>
+            ))}
           </div>
 
-          {/* Email */}
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-300">
-              Email Address
-            </label>
-            <input
-              type="email"
-              id="email"
-              value={formData.email}
-              onChange={handleChange}
-              placeholder="Enter your email"
-              className={`mt-2 w-full px-4 py-2 rounded-lg bg-gray-700 text-white border focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                validationErrors.email ? 'border-red-500' : 'border-gray-600'
-              }`}
-            />
-            {validationErrors.email && (
-              <p className="text-red-400 text-xs mt-1">{validationErrors.email}</p>
-            )}
-          </div>
-
-          {/* Password */}
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-300">
-              Password
-            </label>
-            <input
-              type="password"
-              id="password"
-              value={formData.password}
-              onChange={handleChange}
-              placeholder="Enter your password"
-              className={`mt-2 w-full px-4 py-2 rounded-lg bg-gray-700 text-white border focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                validationErrors.password ? 'border-red-500' : 'border-gray-600'
-              }`}
-            />
-            {validationErrors.password && (
-              <p className="text-red-400 text-xs mt-1">{validationErrors.password}</p>
-            )}
-            <p className="text-xs text-gray-400 mt-1">Minimum 10 characters with at least one uppercase, lowercase letter and number</p>
-          </div>
-
-          {/* Phone */}
-          <div>
-            <label htmlFor="phone" className="block text-sm font-medium text-gray-300">
-              Phone
-            </label>
-            <input
-              type="text"
-              id="phone"
-              value={formData.phone}
-              onChange={handleChange}
-              placeholder="Enter your phone number (must start with 01)"
-              className={`mt-2 w-full px-4 py-2 rounded-lg bg-gray-700 text-white border focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                validationErrors.phone ? 'border-red-500' : 'border-gray-600'
-              }`}
-            />
-            {validationErrors.phone && (
-              <p className="text-red-400 text-xs mt-1">{validationErrors.phone}</p>
-            )}
-            <p className="text-xs text-gray-400 mt-1">Phone must start with 01</p>
-          </div>
-
-          {/* Role */}
-          <div>
-            <label htmlFor="role" className="block text-sm font-medium text-gray-300">
-              Role
-            </label>
-            <select
-              id="role"
-              value={formData.role}
-              onChange={handleChange}
-              className="mt-2 w-full px-4 py-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              required
-            >
-              <option value="USER">User</option>
-              <option value="SELLER">Seller</option>
-              
-            </select>
-          </div>
-
-          {/* Seller Verification Notice */}
+          {/* Seller notice */}
           {formData.role === "SELLER" && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-yellow-800">⚠️ Seller Account Notice</h3>
-                  <div className="mt-2 text-sm text-yellow-700">
-                    <ul className="list-disc list-inside space-y-1">
-                      <li><strong>Admin approval required:</strong> Your account needs verification before login</li>
-                      <li><strong>Cannot login immediately:</strong> Wait for admin approval notification</li>
-                      <li><strong>Verification process:</strong> Admin reviews and approves seller applications</li>
-                      <li><strong>After approval:</strong> You'll be able to access your seller dashboard</li>
-                    </ul>
-                  </div>
-                </div>
+            <div className="alert alert-warning mb-5">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+              <div className="text-xs">
+                <strong>Seller accounts need admin approval</strong> before login.
+                You&apos;ll be notified once your application is reviewed.
               </div>
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2 px-4 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition duration-200"
-          >
-            {loading ? "Signing Up..." : "Sign Up"}
-          </button>
-        </form>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Row: username + fullName */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="input-group">
+                <label htmlFor="username" className="label">Username</label>
+                <input id="username" type="text" value={formData.username} onChange={handleChange}
+                  className={`input ${validationErrors.username ? 'input-error' : ''}`}
+                  placeholder="e.g. john_doe" />
+                {validationErrors.username && <p className="field-error">{validationErrors.username}</p>}
+              </div>
+              <div className="input-group">
+                <label htmlFor="fullName" className="label">Full Name</label>
+                <input id="fullName" type="text" value={formData.fullName} onChange={handleChange}
+                  className={`input ${validationErrors.fullName ? 'input-error' : ''}`}
+                  placeholder="John Doe" />
+                {validationErrors.fullName && <p className="field-error">{validationErrors.fullName}</p>}
+              </div>
+            </div>
 
-        <p className="text-center text-gray-400">
-          Already have an account?{" "}
-          <Link href="/login" className="text-purple-400 hover:underline">
-            Log In
-          </Link>
-        </p>
+            <div className="input-group">
+              <label htmlFor="email" className="label">Email Address</label>
+              <input id="email" type="email" value={formData.email} onChange={handleChange}
+                className={`input ${validationErrors.email ? 'input-error' : ''}`}
+                placeholder="you@example.com" autoComplete="email" />
+              {validationErrors.email && <p className="field-error">{validationErrors.email}</p>}
+            </div>
+
+            <div className="input-group">
+              <label htmlFor="password" className="label">Password</label>
+              <div className="relative">
+                <input id="password" type={showPassword ? 'text' : 'password'} value={formData.password}
+                  onChange={handleChange}
+                  className={`input pr-10 ${validationErrors.password ? 'input-error' : ''}`}
+                  placeholder="Min 10 chars, upper, lower, number" autoComplete="new-password" />
+                <button type="button" onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} tabIndex={-1}>
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {validationErrors.password && <p className="field-error">{validationErrors.password}</p>}
+            </div>
+
+            <div className="input-group">
+              <label htmlFor="phone" className="label">Phone Number</label>
+              <input id="phone" type="text" value={formData.phone} onChange={handleChange}
+                className={`input ${validationErrors.phone ? 'input-error' : ''}`}
+                placeholder="01XXXXXXXXX" maxLength={15} />
+              {validationErrors.phone && <p className="field-error">{validationErrors.phone}</p>}
+            </div>
+
+            <button type="submit" disabled={loading} className="btn btn-primary btn-full btn-lg">
+              {loading ? <><span className="spinner" /> Creating account…</> : 'Create Account'}
+            </button>
+          </form>
+
+          <p className="text-center text-sm mt-6" style={{ color: 'var(--text-secondary)' }}>
+            Already have an account?{" "}
+            <Link href="/login" className="font-semibold hover:underline" style={{ color: 'var(--accent-600)' }}>
+              Sign in
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );
