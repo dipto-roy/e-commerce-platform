@@ -66,6 +66,17 @@ export class OrderService {
     createOrderDto: CreateOrderDto,
     userId: number,
   ): Promise<Order> {
+    // DB-level idempotency: return existing order if same key used again
+    if (createOrderDto.idempotencyKey) {
+      const existing = await this.orderRepository.findOne({
+        where: { userId, idempotencyKey: createOrderDto.idempotencyKey },
+        relations: ['orderItems', 'payment'],
+      });
+      if (existing) {
+        return existing;
+      }
+    }
+
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -101,6 +112,7 @@ export class OrderService {
         taxAmount,
         shippingAddress: createOrderDto.shippingAddress,
         notes: createOrderDto.notes,
+        idempotencyKey: createOrderDto.idempotencyKey ?? null,
       });
 
       const savedOrder = await queryRunner.manager.save(Order, order);
@@ -193,6 +205,17 @@ export class OrderService {
     userId: number,
     createOrderFromCartDto: CreateOrderFromCartDto,
   ): Promise<Order> {
+    // DB-level idempotency: return existing order if same key used again
+    if (createOrderFromCartDto.idempotencyKey) {
+      const existing = await this.orderRepository.findOne({
+        where: { userId, idempotencyKey: createOrderFromCartDto.idempotencyKey },
+        relations: ['orderItems', 'payment'],
+      });
+      if (existing) {
+        return existing;
+      }
+    }
+
     // Add timeout protection to prevent frontend timeout
     const TIMEOUT_MS = 8000; // 8 seconds (less than frontend's 10s)
 
@@ -276,6 +299,7 @@ export class OrderService {
         paymentStatus: PaymentStatus.PENDING,
         shippingAddress: createOrderFromCartDto.shippingAddress,
         notes: createOrderFromCartDto.notes,
+        idempotencyKey: createOrderFromCartDto.idempotencyKey ?? null,
       });
 
       const savedOrder = await queryRunner.manager.save(Order, order);
@@ -579,7 +603,8 @@ export class OrderService {
     }
 
     // 4. Create Stripe payment intent
-    // Pass amount in dollars - StripeService will convert to cents
+    // Pass amount in dollars — StripeService converts to cents.
+    // Idempotency key: Stripe deduplicates same key within 24 h.
     const paymentIntent = await this.stripeService.createPaymentIntent(
       order.totalAmount,
       'usd',
@@ -587,6 +612,7 @@ export class OrderService {
         orderId: order.id.toString(),
         userId: order.userId.toString(),
       },
+      `pi-order-${orderId}`,
     );
 
     // 5. Update payment record

@@ -14,6 +14,8 @@ import { MaillerModule } from './mailler/mailler.module';
 import { OrderModule } from './order/order.module';
 import { FinancialModule } from './financial/financial.module';
 import { NotificationModule } from './notification/notification.module';
+import { AppCacheModule } from './cache/cache.module';
+import { IdempotencyModule } from './idempotency/idempotency.module';
 import { CartModule } from './cart/cart.module';
 import { PaymentModule } from './payment/payment.module';
 import { MaillerService } from './mailler/mailler.service';
@@ -39,31 +41,35 @@ import { Notification } from './notification/entities/notification.entity';
       isGlobal: true,
       envFilePath: '.env',
     }),
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT),
-      username: process.env.DB_USERNAME || 'postgres',
-      password: process.env.DB_PASSWORD || 'postgres',
-      database: process.env.DB_DATABASE || 'e_commerce',
-      entities: [
-        User,
-        Seller,
-        Product,
-        ProductImage,
-        RefreshToken,
-        LoginLog,
-        OtpToken,
-        OAuthAccount,
-        Order,
-        OrderItem,
-        Payment,
-        FinancialRecord,
-        Cart,
-        Notification,
-      ],
-      synchronize: false,
-      logging: true,
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        type: 'postgres',
+        host: config.get<string>('DB_HOST', 'localhost'),
+        port: config.get<number>('DB_PORT', 5432),
+        username: config.get<string>('DB_USERNAME', 'postgres'),
+        password: config.get<string>('DB_PASSWORD', 'postgres'),
+        database: config.get<string>('DB_DATABASE', 'e_commerce'),
+        entities: [
+          User,
+          Seller,
+          Product,
+          ProductImage,
+          RefreshToken,
+          LoginLog,
+          OtpToken,
+          OAuthAccount,
+          Order,
+          OrderItem,
+          Payment,
+          FinancialRecord,
+          Cart,
+          Notification,
+        ],
+        synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
+        logging: config.get<string>('DB_LOGGING') !== 'false',
+      }),
     }),
     AdminModule,
     SellerModule,
@@ -76,6 +82,8 @@ import { Notification } from './notification/entities/notification.entity';
     OrderModule,
     FinancialModule,
     NotificationModule,
+    AppCacheModule,
+    IdempotencyModule,
     CartModule,
     PaymentModule,
   ],

@@ -7,6 +7,7 @@ import {
   Body,
   Query,
   UseGuards,
+  UseInterceptors,
   UsePipes,
   ValidationPipe,
   ParseIntPipe,
@@ -26,11 +27,13 @@ import { JwtAuthGuard } from '../auth/jwt-auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles/roles.guard';
 import { Roles } from '../auth/roles.decorator/roles.decorator';
 import { Role } from '../users/entities/role.enum';
+import { IdempotencyInterceptor } from '../idempotency/idempotency.interceptor';
 
 @ApiTags('Orders')
 @ApiBearerAuth('JWT-auth')
 @Controller('orders')
 @UseGuards(JwtAuthGuard)
+@UseInterceptors(IdempotencyInterceptor)
 export class OrderController {
   constructor(private readonly orderService: OrderService) {}
 

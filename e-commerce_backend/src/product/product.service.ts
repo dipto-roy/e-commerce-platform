@@ -13,6 +13,8 @@ import { ProductDto, UpdateProductDto } from './dto/product.dto';
 // Removed Seller import, use User for seller logic
 import { User } from '../users/entities/unified-user.entity';
 import { CreateProductDto } from './dto/product.dto';
+import { AppCacheService } from '../cache/cache.service';
+import { CACHE_KEYS, CACHE_PREFIXES, TTL } from '../cache/cache-keys';
 import * as fs from 'fs';
 import * as path from 'path';
 @Injectable()
@@ -28,33 +30,46 @@ export class ProductService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private dataSource: DataSource,
+    private readonly cacheService: AppCacheService,
   ) {}
 
   async getAllProducts(): Promise<Product[]> {
-    return await this.productRepository.find({
-      relations: ['seller', 'images'],
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        price: true,
-        stockQuantity: true,
-        category: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true,
-        userId: true,
-        seller: {
-          id: true,
-          username: true,
-          phone: true,
-          isActive: true,
-        },
-      },
-      order: {
-        createdAt: 'DESC',
-      },
-    });
+    return this.cacheService.wrap(
+      CACHE_KEYS.PRODUCT_LIST,
+      () =>
+        this.productRepository.find({
+          relations: ['seller', 'images'],
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            price: true,
+            stockQuantity: true,
+            category: true,
+            isActive: true,
+            createdAt: true,
+            updatedAt: true,
+            userId: true,
+            seller: {
+              id: true,
+              username: true,
+              phone: true,
+              isActive: true,
+            },
+          },
+          order: { createdAt: 'DESC' },
+        }),
+      TTL.MEDIUM,
+    );
+  }
+
+  // ─── Cache invalidation helpers ─────────────────────────────────────────
+
+  private async invalidateProductCache(productId?: number, sellerId?: number): Promise<void> {
+    await this.cacheService.invalidatePrefix(CACHE_PREFIXES.PRODUCTS);
+    // Individual keys are already covered by prefix scan, but be explicit for detail
+    if (productId) await this.cacheService.del(CACHE_KEYS.PRODUCT_DETAIL(productId));
+    if (sellerId) await this.cacheService.del(CACHE_KEYS.PRODUCT_SELLER(sellerId));
   }
 
   async createProduct(productDto: ProductDto): Promise<Product> {
@@ -89,6 +104,7 @@ export class ProductService {
 
     try {
       const savedProduct = await this.productRepository.save(product);
+      await this.invalidateProductCache(undefined, seller.id);
       // Return with seller relationship loaded
       return await this.productRepository.findOne({
         where: { id: (savedProduct as any).id },
@@ -163,6 +179,7 @@ export class ProductService {
       await this.productImageRepository.save(productImages);
     }
 
+    await this.invalidateProductCache(undefined, user.id);
     // Return the product with images
     return this.productRepository.findOne({
       where: { id: savedProduct.id },
@@ -187,32 +204,39 @@ export class ProductService {
     const preparedUpdateData = this.prepareProductData(updateProductDto);
 
     Object.assign(product, preparedUpdateData);
-    return await this.productRepository.save(product);
+    const updated = await this.productRepository.save(product);
+    await this.invalidateProductCache(id, product.userId);
+    return updated;
   }
 
   async getProductById(id: number): Promise<Product> {
-    const product = await this.productRepository.findOne({
-      where: { id },
-      relations: ['seller', 'images'],
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        price: true,
-        stockQuantity: true,
-        category: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true,
-        userId: true,
-        seller: {
-          id: true,
-          username: true,
-          phone: true,
-          isActive: true,
-        },
-      },
-    });
+    const product = await this.cacheService.wrap(
+      CACHE_KEYS.PRODUCT_DETAIL(id),
+      () =>
+        this.productRepository.findOne({
+          where: { id },
+          relations: ['seller', 'images'],
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            price: true,
+            stockQuantity: true,
+            category: true,
+            isActive: true,
+            createdAt: true,
+            updatedAt: true,
+            userId: true,
+            seller: {
+              id: true,
+              username: true,
+              phone: true,
+              isActive: true,
+            },
+          },
+        }),
+      TTL.MEDIUM,
+    );
 
     if (!product) {
       throw new NotFoundException(`Product with ID '${id}' not found`);
@@ -277,6 +301,7 @@ export class ProductService {
         product.isActive = false;
         product.name = `[DELETED] ${product.name}`;
         await this.productRepository.save(product);
+        await this.invalidateProductCache(id, product.userId);
 
         return {
           message: `Product '${product.name}' has been deactivated (cannot delete due to existing orders)`,
@@ -285,6 +310,7 @@ export class ProductService {
       } else {
         // If no order references, safe to hard delete
         await this.productRepository.remove(product);
+        await this.invalidateProductCache(id, product.userId);
 
         return {
           message: `Product '${product.name}' has been successfully deleted`,
@@ -298,6 +324,7 @@ export class ProductService {
         product.isActive = false;
         product.name = `[DELETED] ${product.name}`;
         await this.productRepository.save(product);
+        await this.invalidateProductCache(id, product.userId);
 
         return {
           message: `Product '${product.name}' has been deactivated (referenced in existing orders)`,
@@ -509,42 +536,45 @@ export class ProductService {
 
   // NEW: Get all products with their images eagerly loaded
   async getAllProductsWithImages(): Promise<Product[]> {
-    return await this.productRepository.find({
-      relations: ['seller', 'images'],
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        price: true,
-        stockQuantity: true,
-        category: true,
-        isActive: true,
-        slug: true,
-        createdAt: true,
-        updatedAt: true,
-        userId: true,
-        seller: {
-          id: true,
-          username: true,
-          phone: true,
-          isActive: true,
-        },
-        images: {
-          id: true,
-          imageUrl: true,
-          altText: true,
-          isActive: true,
-          sortOrder: true,
-          createdAt: true,
-        },
-      },
-      order: {
-        createdAt: 'DESC',
-        images: {
-          sortOrder: 'ASC',
-        },
-      },
-    });
+    return this.cacheService.wrap(
+      `${CACHE_KEYS.PRODUCT_LIST}:with-images`,
+      () =>
+        this.productRepository.find({
+          relations: ['seller', 'images'],
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            price: true,
+            stockQuantity: true,
+            category: true,
+            isActive: true,
+            slug: true,
+            createdAt: true,
+            updatedAt: true,
+            userId: true,
+            seller: {
+              id: true,
+              username: true,
+              phone: true,
+              isActive: true,
+            },
+            images: {
+              id: true,
+              imageUrl: true,
+              altText: true,
+              isActive: true,
+              sortOrder: true,
+              createdAt: true,
+            },
+          },
+          order: {
+            createdAt: 'DESC',
+            images: { sortOrder: 'ASC' },
+          },
+        }),
+      TTL.MEDIUM,
+    );
   }
 
   // NEW: Get paginated products with images for main page
@@ -559,60 +589,63 @@ export class ProductService {
     hasNextPage: boolean;
     hasPrevPage: boolean;
   }> {
-    const skip = (page - 1) * limit;
+    const cacheKey = `${CACHE_KEYS.PRODUCT_LIST}:paginated:${page}:${limit}`;
 
-    const [products, totalCount] = await this.productRepository.findAndCount({
-      relations: ['seller', 'images'],
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        price: true,
-        stockQuantity: true,
-        category: true,
-        isActive: true,
-        slug: true,
-        createdAt: true,
-        updatedAt: true,
-        userId: true,
-        seller: {
-          id: true,
-          username: true,
-          phone: true,
-          isActive: true,
-        },
-        images: {
-          id: true,
-          imageUrl: true,
-          altText: true,
-          isActive: true,
-          sortOrder: true,
-          createdAt: true,
-        },
-      },
-      where: {
-        isActive: true,
-      },
-      order: {
-        createdAt: 'DESC',
-        images: {
-          sortOrder: 'ASC',
-        },
-      },
-      skip,
-      take: limit,
-    });
+    return this.cacheService.wrap(
+      cacheKey,
+      async () => {
+        const skip = (page - 1) * limit;
+        const [products, totalCount] = await this.productRepository.findAndCount({
+          relations: ['seller', 'images'],
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            price: true,
+            stockQuantity: true,
+            category: true,
+            isActive: true,
+            slug: true,
+            createdAt: true,
+            updatedAt: true,
+            userId: true,
+            seller: {
+              id: true,
+              username: true,
+              phone: true,
+              isActive: true,
+            },
+            images: {
+              id: true,
+              imageUrl: true,
+              altText: true,
+              isActive: true,
+              sortOrder: true,
+              createdAt: true,
+            },
+          },
+          where: { isActive: true },
+          order: {
+            createdAt: 'DESC',
+            images: { sortOrder: 'ASC' },
+          },
+          skip,
+          take: limit,
+        });
 
-    const totalPages = Math.ceil(totalCount / limit);
+        const totalPages = Math.ceil(totalCount / limit);
 
-    return {
-      products,
-      totalCount,
-      totalPages,
-      currentPage: page,
-      hasNextPage: page < totalPages,
-      hasPrevPage: page > 1,
-    };
+        return {
+          products,
+          totalCount,
+          totalPages,
+          currentPage: page,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1,
+        };
+      },
+      TTL.SHORT,
+    );
   }
 
   // NEW: Get specific product with its images

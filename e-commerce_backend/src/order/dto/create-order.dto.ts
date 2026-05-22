@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   IsIn,
+  MaxLength,
 } from 'class-validator';
 
 export class CreateOrderItemDto {
@@ -68,6 +69,12 @@ export class CreateOrderFromCartDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  /** Client-generated UUID/nanoid to prevent duplicate submissions */
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  idempotencyKey?: string;
 }
 
 export class CreateOrderDto {
@@ -81,4 +88,10 @@ export class CreateOrderDto {
   paymentMethod: string; // 'cod', 'card', 'mobile_banking', etc.
 
   notes?: string;
+
+  /** Client-generated UUID/nanoid to prevent duplicate submissions */
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  idempotencyKey?: string;
 }

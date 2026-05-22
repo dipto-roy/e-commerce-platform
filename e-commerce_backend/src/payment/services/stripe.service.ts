@@ -22,25 +22,34 @@ export class StripeService {
   }
 
   /**
-   * Create a PaymentIntent for Stripe checkout
+   * Create a PaymentIntent for Stripe checkout.
+   * Pass `idempotencyKey` to let Stripe deduplicate retries within 24 hours.
    */
   async createPaymentIntent(
     amount: number,
     currency: string,
     metadata: Record<string, any>,
+    idempotencyKey?: string,
   ): Promise<Stripe.PaymentIntent> {
     try {
       // Convert amount to cents (Stripe expects smallest currency unit)
       const amountInCents = Math.round(amount * 100);
 
-      const paymentIntent = await this.stripe.paymentIntents.create({
-        amount: amountInCents,
-        currency: currency.toLowerCase(),
-        metadata,
-        automatic_payment_methods: {
-          enabled: true,
+      const requestOptions: Stripe.RequestOptions = idempotencyKey
+        ? { idempotencyKey }
+        : {};
+
+      const paymentIntent = await this.stripe.paymentIntents.create(
+        {
+          amount: amountInCents,
+          currency: currency.toLowerCase(),
+          metadata,
+          automatic_payment_methods: {
+            enabled: true,
+          },
         },
-      });
+        requestOptions,
+      );
 
       this.logger.log(
         `PaymentIntent created: ${paymentIntent.id} for ${currency} ${amount}`,
