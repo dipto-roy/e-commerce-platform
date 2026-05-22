@@ -6,6 +6,8 @@ import { Role } from '../users/entities/role.enum';
 import { Order } from 'src/order/entities/order.entity';
 import { Notification, NotificationType } from './entities/notification.entity';
 import { NotificationSseService } from './notification-sse.service';
+import { AppCacheService } from '../cache/cache.service';
+import { CACHE_KEYS, CACHE_PREFIXES, TTL } from '../cache/cache-keys';
 
 export interface NotificationData {
   type:
@@ -33,6 +35,7 @@ export class NotificationService {
     @InjectRepository(Notification)
     private readonly notificationRepository: Repository<Notification>,
     private readonly sseService: NotificationSseService,
+    private readonly cacheService: AppCacheService,
   ) {}
 
   // ─── CORE DELIVERY ───────────────────────────────────────────────────────────
@@ -174,7 +177,10 @@ export class NotificationService {
       actionUrl: data.actionUrl ?? null,
       read: false,
     });
-    return this.notificationRepository.save(entity);
+    const saved = await this.notificationRepository.save(entity);
+    // Fire-and-forget invalidation — don't block the delivery path
+    void this.invalidateNotificationCache(Number(userId));
+    return saved;
   }
 
   async getUserNotifications(
@@ -188,17 +194,28 @@ export class NotificationService {
     limit: number;
     totalPages: number;
   }> {
-    const [notifications, total] = await this.notificationRepository.findAndCount({
-      where: { userId },
-      order: { createdAt: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
-    return { notifications, total, page, limit, totalPages: Math.ceil(total / limit) };
+    const cacheKey = `${CACHE_KEYS.NOTIFICATION_USER(userId)}:${page}:${limit}`;
+    return this.cacheService.wrap(
+      cacheKey,
+      async () => {
+        const [notifications, total] = await this.notificationRepository.findAndCount({
+          where: { userId },
+          order: { createdAt: 'DESC' },
+          skip: (page - 1) * limit,
+          take: limit,
+        });
+        return { notifications, total, page, limit, totalPages: Math.ceil(total / limit) };
+      },
+      TTL.SHORT,
+    );
   }
 
   async getUnreadCount(userId: number): Promise<number> {
-    return this.notificationRepository.count({ where: { userId, read: false } });
+    return this.cacheService.wrap(
+      CACHE_KEYS.NOTIFICATION_UNREAD(userId),
+      () => this.notificationRepository.count({ where: { userId, read: false } }),
+      TTL.SHORT,
+    );
   }
 
   async markAsRead(notificationId: number, userId: number): Promise<Notification> {
@@ -208,7 +225,9 @@ export class NotificationService {
     if (!notification) throw new Error('Notification not found');
     notification.read = true;
     notification.readAt = new Date();
-    return this.notificationRepository.save(notification);
+    const saved = await this.notificationRepository.save(notification);
+    await this.invalidateNotificationCache(userId);
+    return saved;
   }
 
   async markAllAsRead(userId: number): Promise<{ affected: number }> {
@@ -216,17 +235,28 @@ export class NotificationService {
       { userId, read: false },
       { read: true, readAt: new Date() },
     );
+    await this.invalidateNotificationCache(userId);
     return { affected: result.affected ?? 0 };
   }
 
   async deleteNotification(notificationId: number, userId: number): Promise<void> {
     const result = await this.notificationRepository.delete({ id: notificationId, userId });
     if (result.affected === 0) throw new Error('Notification not found');
+    await this.invalidateNotificationCache(userId);
   }
 
   async deleteReadNotifications(userId: number): Promise<{ affected: number }> {
     const result = await this.notificationRepository.delete({ userId, read: true });
+    await this.invalidateNotificationCache(userId);
     return { affected: result.affected ?? 0 };
+  }
+
+  private async invalidateNotificationCache(userId?: number): Promise<void> {
+    if (userId) {
+      await this.cacheService.invalidatePrefix(`notifications:user:${userId}`);
+      await this.cacheService.del(CACHE_KEYS.NOTIFICATION_UNREAD(userId));
+    }
+    await this.cacheService.del(CACHE_KEYS.NOTIFICATION_STATS);
   }
 
   // ─── ADMIN STATS ─────────────────────────────────────────────────────────────
@@ -238,30 +268,36 @@ export class NotificationService {
     recentCount: number;
     connectedUsers: number;
   }> {
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    // connectedUsers is live — don't cache the whole result, only the DB aggregates
+    const cacheKey = CACHE_KEYS.NOTIFICATION_STATS;
+    const dbStats = await this.cacheService.wrap(
+      cacheKey,
+      async () => {
+        const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const [total, unread, recentCount, byTypeRaw] = await Promise.all([
+          this.notificationRepository.count(),
+          this.notificationRepository.count({ where: { read: false } }),
+          this.notificationRepository.count({ where: { createdAt: MoreThan(yesterday) } }),
+          this.notificationRepository
+            .createQueryBuilder('n')
+            .select('n.type', 'type')
+            .addSelect('COUNT(n.id)', 'count')
+            .groupBy('n.type')
+            .getRawMany<{ type: string; count: string }>(),
+        ]);
 
-    const [total, unread, recentCount, byTypeRaw] = await Promise.all([
-      this.notificationRepository.count(),
-      this.notificationRepository.count({ where: { read: false } }),
-      this.notificationRepository.count({ where: { createdAt: MoreThan(yesterday) } }),
-      this.notificationRepository
-        .createQueryBuilder('n')
-        .select('n.type', 'type')
-        .addSelect('COUNT(n.id)', 'count')
-        .groupBy('n.type')
-        .getRawMany<{ type: string; count: string }>(),
-    ]);
+        const byType = byTypeRaw.reduce<Record<string, number>>((acc, row) => {
+          acc[row.type] = parseInt(row.count, 10);
+          return acc;
+        }, {});
 
-    const byType = byTypeRaw.reduce<Record<string, number>>((acc, row) => {
-      acc[row.type] = parseInt(row.count, 10);
-      return acc;
-    }, {});
+        return { total, unread, recentCount, byType };
+      },
+      TTL.SHORT,
+    );
 
     return {
-      total,
-      unread,
-      byType,
-      recentCount,
+      ...dbStats,
       connectedUsers: this.sseService.getConnectionCount(),
     };
   }

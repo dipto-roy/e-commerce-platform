@@ -7,6 +7,8 @@ import { User } from '../users/entities/unified-user.entity';
 import { Role } from '../users/entities/role.enum';
 import { Product } from '../product/entities/product.entity';
 import { TrendPeriod, TrendDataPoint } from './dto/dashboard-trends.dto';
+import { AppCacheService } from '../cache/cache.service';
+import { CACHE_KEYS, CACHE_PREFIXES, TTL } from '../cache/cache-keys';
 
 @Injectable()
 export class AdminService {
@@ -19,6 +21,7 @@ export class AdminService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    private readonly cacheService: AppCacheService,
   ) {}
 
   // Example method
@@ -51,19 +54,31 @@ export class AdminService {
 
   // Seller verification methods
   async getPendingSellers() {
-    return await this.usersService.findPendingSellers();
+    return this.cacheService.wrap(
+      CACHE_KEYS.ADMIN_SELLERS + ':pending',
+      () => this.usersService.findPendingSellers(),
+      TTL.SHORT,
+    );
   }
 
   async getVerifiedSellers() {
-    return await this.usersService.findVerifiedSellers();
+    return this.cacheService.wrap(
+      CACHE_KEYS.ADMIN_SELLERS + ':verified',
+      () => this.usersService.findVerifiedSellers(),
+      TTL.SHORT,
+    );
   }
 
   async verifySeller(sellerId: number) {
-    return await this.usersService.verifySeller(sellerId);
+    const result = await this.usersService.verifySeller(sellerId);
+    await this.cacheService.invalidatePrefix(CACHE_PREFIXES.ADMIN);
+    return result;
   }
 
   async rejectSeller(sellerId: number, deleteAccount: boolean = false) {
-    return await this.usersService.rejectSeller(sellerId, deleteAccount);
+    const result = await this.usersService.rejectSeller(sellerId, deleteAccount);
+    await this.cacheService.invalidatePrefix(CACHE_PREFIXES.ADMIN);
+    return result;
   }
 
   // Email functionality
@@ -176,6 +191,21 @@ export class AdminService {
    * Returns historical data for users, sellers, and products
    */
   async getDashboardTrends(
+    period: TrendPeriod = TrendPeriod.SEVEN_DAYS,
+  ): Promise<{
+    data: TrendDataPoint[];
+    period: string;
+    startDate: string;
+    endDate: string;
+  }> {
+    return this.cacheService.wrap(
+      `${CACHE_KEYS.ADMIN_STATS}:trends:${period}`,
+      () => this._fetchDashboardTrends(period),
+      TTL.MEDIUM,
+    );
+  }
+
+  private async _fetchDashboardTrends(
     period: TrendPeriod = TrendPeriod.SEVEN_DAYS,
   ): Promise<{
     data: TrendDataPoint[];

@@ -30,6 +30,8 @@ services:
       NODE_ENV: development
       DB_HOST: postgres
       DB_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     ports:
       - "${PORT:-4002}:4002"
     volumes:
@@ -39,6 +41,8 @@ services:
       - /app/node_modules
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     # `.ts` edits hot-reload live via the bind-mount above.
     # `watch` auto-rebuilds the image when dependencies change.
@@ -50,6 +54,21 @@ services:
           path: package-lock.json
         - action: rebuild
           path: Dockerfile
+
+  redis:
+    image: redis:7-alpine
+    container_name: ecommerce-redis-dev
+    restart: unless-stopped
+    ports:
+      - "${REDIS_EXPOSED_PORT:-6379}:6379"
+    volumes:
+      - redis_data_dev:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Web UI to browse the Postgres database
   adminer:
@@ -65,5 +84,23 @@ services:
       postgres:
         condition: service_healthy
 
+  # Web UI to browse Redis keys, memory, and CLI
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: ecommerce-redis-commander-dev
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: "local:redis:6379"
+      # Uncomment if Redis has a password:
+      # REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      HTTP_USER: ${REDIS_COMMANDER_USER:-admin}
+      HTTP_PASSWORD: ${REDIS_COMMANDER_PASSWORD:-admin}
+    ports:
+      - "${REDIS_COMMANDER_PORT:-8081}:8081"
+    depends_on:
+      redis:
+        condition: service_healthy
+
 volumes:
   pgdata_dev:
+  redis_data_dev:

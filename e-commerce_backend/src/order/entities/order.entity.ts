@@ -8,12 +8,18 @@ import {
   JoinColumn,
   OneToMany,
   OneToOne,
+  Index,
 } from 'typeorm';
 import { User } from '../../users/entities/unified-user.entity';
 import { OrderItem } from './order-item.entity';
 import { Payment } from './payment.entity';
 import { OrderStatus, PaymentStatus } from './order.enums';
 
+/**
+ * Composite unique on (userId, idempotencyKey) — PostgreSQL treats multiple
+ * NULLs as distinct, so nullable rows don't collide.
+ */
+@Index('IDX_ORDER_USER_IDEMPOTENCY', ['userId', 'idempotencyKey'], { unique: true })
 @Entity('orders')
 export class Order {
   @PrimaryGeneratedColumn()
@@ -61,6 +67,19 @@ export class Order {
     postalCode: string;
     country: string;
   };
+
+  /**
+   * Client-supplied idempotency key (max 128 chars).
+   * Composite unique with userId enforced via IDX_ORDER_USER_IDEMPOTENCY.
+   * Prevents duplicate order creation on network retries.
+   */
+  @Column({
+    name: 'idempotency_key',
+    type: 'varchar',
+    length: 128,
+    nullable: true,
+  })
+  idempotencyKey?: string;
 
   // Order notes/instructions
   @Column({ type: 'text', nullable: true })

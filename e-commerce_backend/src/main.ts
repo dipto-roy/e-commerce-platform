@@ -16,6 +16,7 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
 
   // 🔒 Security: Helmet for security headers
+  const isDev = process.env.NODE_ENV !== 'production';
   app.use(
     helmet({
       contentSecurityPolicy: {
@@ -26,7 +27,9 @@ async function bootstrap() {
           imgSrc: ["'self'", 'data:', 'https:'],
         },
       },
-      crossOriginEmbedderPolicy: false, // Allow embedding for development
+      // Disabled in dev so Swagger UI + embedded assets work without friction.
+      // In production this is enabled (COEP blocks cross-origin resources lacking CORP headers).
+      crossOriginEmbedderPolicy: !isDev,
     }),
   );
 
@@ -78,8 +81,13 @@ async function bootstrap() {
     },
     credentials: true, // Allow cookies to be sent
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-    exposedHeaders: ['set-cookie'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'Accept',
+      'Idempotency-Key',
+    ],
+    exposedHeaders: ['set-cookie', 'X-Idempotency-Replayed'],
   });
 
   // FIXED: Proper static file serving configuration
