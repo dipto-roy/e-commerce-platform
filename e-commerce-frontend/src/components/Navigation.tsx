@@ -27,6 +27,9 @@ export default function Navigation() {
   const router = useRouter();
   const pathname = usePathname();
   const { user, loading, logout } = useAuth();
+
+  // Admin dashboard has its own layout with Header + Sidebar — hide global nav
+  if (pathname.startsWith('/dashboard/admin')) return null;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');

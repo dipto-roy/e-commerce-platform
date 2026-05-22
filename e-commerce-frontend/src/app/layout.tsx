@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navigation from "@/components/Navigation";
-import Footer from "@/components/Footer/Footer";
+import ConditionalFooter from "@/components/ConditionalFooter";
 import CursorTrail from "@/components/CursorTrail/CursorTrail";
 import { AuthProvider } from "@/contexts/AuthContextNew";
 import { ToastProvider } from "@/contexts/ToastContext";
@@ -52,7 +52,7 @@ export default function RootLayout({
             <ToastProvider>
               <Navigation />
               {children}
-              <Footer />
+              <ConditionalFooter />
             </ToastProvider>
           </NotificationWrapper>
         </AuthProvider>

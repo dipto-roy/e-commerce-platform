@@ -4,7 +4,6 @@ import { Users, Store, Clock, Package, RefreshCw } from 'lucide-react';
 import { adminAPI } from '@/lib/adminAPI';
 import { useToast } from '@/contexts/ToastContext';
 import { useNotifications } from '@/contexts/NotificationContext';
-import NotificationBell from '@/components/NotificationBell';
 import StatsOverviewChart from '@/components/admin/StatsOverviewChart';
 import UserDistributionChart from '@/components/admin/UserDistributionChart';
 import StatsLineChart from '@/components/admin/StatsLineChart';
@@ -89,12 +88,9 @@ export default function AdminDashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h1 className="section-title">Dashboard</h1>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <NotificationBell />
-            <span className={`text-xs font-semibold ${isConnected ? 'text-[var(--accent-600)]' : 'text-red-500'}`}>
-              ● {isConnected ? 'Live' : 'Offline'}
-            </span>
-          </div>
+          <span className={`text-xs font-semibold ${isConnected ? 'text-[var(--accent-600)]' : 'text-red-500'}`}>
+            ● {isConnected ? 'Live' : 'Offline'}
+          </span>
           <button onClick={fetchDashboardData} className="btn btn-outline btn-sm">
             <RefreshCw className="w-3.5 h-3.5" /> Refresh
           </button>

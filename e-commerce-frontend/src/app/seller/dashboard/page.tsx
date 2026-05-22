@@ -6,7 +6,6 @@ import { useAuth } from '@/contexts/AuthContextNew';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { sellerDashboardAPI } from '@/utils/api';
 import { Package, DollarSign, ShoppingCart, BarChart3, Mail, HelpCircle, Plus, AlertTriangle } from 'lucide-react';
-import SellerNotificationBell from '@/components/SellerNotificationBell';
 import NotificationPopupManager from '@/components/NotificationPopupManager';
 
 interface DashboardStats {
@@ -98,12 +97,9 @@ export default function SellerDashboard() {
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <SellerNotificationBell />
-                <span className={`text-xs font-semibold ${isConnected ? 'text-[var(--accent-600)]' : 'text-red-500'}`}>
-                  ● {isConnected ? 'Live' : 'Offline'}
-                </span>
-              </div>
+              <span className={`text-xs font-semibold ${isConnected ? 'text-[var(--accent-600)]' : 'text-red-500'}`}>
+                ● {isConnected ? 'Live' : 'Offline'}
+              </span>
               <button onClick={async () => { await logout(); router.push('/login'); }}
                 className="btn btn-danger btn-sm">Logout</button>
             </div>
